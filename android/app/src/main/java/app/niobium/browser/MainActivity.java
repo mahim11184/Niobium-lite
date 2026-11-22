@@ -41,7 +41,6 @@ public class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
-        cookies.setAcceptThirdPartyCookies(new WebView(this), true);
         buildShell();
         addTab("file:///android_asset/index.html");
     }
@@ -98,6 +97,7 @@ public class MainActivity extends Activity {
 
     private WebView createWebView() {
         WebView w = new WebView(this);
+        CookieManager.getInstance().setAcceptThirdPartyCookies(w, true);
         w.setBackgroundColor(Color.WHITE);
         w.getSettings().setJavaScriptEnabled(true);
         w.getSettings().setDomStorageEnabled(true);
