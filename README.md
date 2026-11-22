@@ -41,3 +41,12 @@ This is an early browser project, not yet a hardened daily-use browser. Electron
 
 ## License
 MIT. See [LICENSE](LICENSE).
+
+## Android editions
+
+- Niobium Lite (android/): the small Android System WebView edition for low-memory devices.
+- Niobium Chromium base: a separate workflow downloads official, unmodified Cromite Chromium browser APKs for ARM64 and ARMv7. This is a genuine Chromium browser engine, not Android System WebView. These are upstream Cromite builds, not yet rebranded or rebuilt as Niobium.
+
+Run Actions → Get Niobium Chromium Base (Cromite) → Run workflow to fetch the latest upstream APKs. The workflow also runs weekly. Verify the included SHA-256 checksums before installation.
+
+Cromite upstream: https://github.com/uazo/cromite
