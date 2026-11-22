@@ -1,104 +1,276 @@
-name: Build Niobium Full Android (Cromite Chromium)
+name: Build Niobium Full Android (ungoogled Chromium)
 
 on:
   workflow_dispatch:
+    inputs:
+      architecture:
+        description: Android CPU architecture
+        required: true
+        type: choice
+        default: arm64
+        options: [arm64, arm]
+      chromium_source:
+        description: Chromium source mirror
+        required: true
+        type: choice
+        default: github
+        options: [github, googlesource]
+      threads:
+        description: Ninja threads (0 uses runner default)
+        required: false
+        default: '2'
+        type: string
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: niobium-full-${{ inputs.architecture }}
+  cancel-in-progress: false
 
 jobs:
-  build-full-android:
-    # A full Chromium build needs the large persistent Cromite builder, not a
-    # standard GitHub-hosted runner.
-    runs-on: [self-hosted, linux, x64, cromite-builder]
-    timeout-minutes: 1440
-
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
     steps:
-      - name: Checkout Niobium
+      - name: Checkout upstream build system
         uses: actions/checkout@v4
-
-      - name: Resolve latest Cromite source and matching build image
-        id: cromite
+        with:
+          repository: ungoogled-software/ungoogled-chromium-android
+          ref: master
+          path: .
+      - name: Checkout Niobium branding
+        uses: actions/checkout@v4
+        with:
+          repository: mahim11184/Niobium
+          ref: main
+          path: niobium
+      - name: Prepare hosted runner
         shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsSL https://api.github.com/repos/uazo/cromite/releases/latest -o release.json
-          TAG="$(jq -r .tag_name release.json)"
-          VERSION="$(printf '%s' "$TAG" | sed -E 's/^v([0-9.]+)-([0-9a-f]{40})$/\1/')"
-          SHA="$(printf '%s' "$TAG" | sed -E 's/^v([0-9.]+)-([0-9a-f]{40})$/\2/')"
-          [[ -n "$VERSION" && "$VERSION" != "$TAG" ]]
-          [[ -n "$SHA" && "$SHA" != "$TAG" ]]
-          IMAGE="uazo/cromite-build:$VERSION-$SHA"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-          docker pull "$IMAGE"
-
-      - name: Prepare artifact directory
-        shell: bash
-        run: |
-          mkdir -p dist
-          chmod 0777 dist
-
-      - name: Apply Niobium branding and build arm64 APK
         env:
-          IMAGE: ${{ steps.cromite.outputs.image }}
-          CROMITE_VERSION: ${{ steps.cromite.outputs.version }}
-          CROMITE_SHA: ${{ steps.cromite.outputs.sha }}
+          UGC_WORK: /mnt/ugc
+        run: .github/scripts/hosted-prepare.sh
+      - name: Fetch and configure Chromium source
         shell: bash
-        run: |
-          set -euo pipefail
-          docker run --rm \
-            -e WORKSPACE=/home/lg/working_dir \
-            -e HOME=/home/lg/working_dir \
-            -e TARGET_ISDEBUG=true \
-            -e CROMITE_VERSION="$CROMITE_VERSION" \
-            -e CROMITE_SHA="$CROMITE_SHA" \
-            -v "$GITHUB_WORKSPACE:/niobium" \
-            --entrypoint /bin/bash \
-            "$IMAGE" -lc '
-              set -euo pipefail
-              export WORKSPACE=/home/lg/working_dir
-              export HOME=/home/lg/working_dir
-              export PATH="$WORKSPACE/chromium/src/third_party/llvm-build/Release+Asserts/bin:$WORKSPACE/depot_tools:/usr/local/go/bin:$WORKSPACE/mtool/bin:$PATH"
-
-              test -d "$WORKSPACE/chromium/src"
-              test -f "$WORKSPACE/cromite/build/cromite.gn_args"
-
-              if ! command -v rsvg-convert >/dev/null 2>&1; then
-                sudo apt-get update
-                sudo apt-get install -y librsvg2-bin
-              fi
-
-              bash /niobium/scripts/rebrand-cromite.sh \
-                "$WORKSPACE/cromite" \
-                "$WORKSPACE/chromium/src" \
-                /niobium
-
-              cd "$WORKSPACE/chromium/src"
-              gn gen --args="target_os = \"android\" $(cat "$WORKSPACE/cromite/build/cromite.gn_args") target_cpu = \"arm64\"" out/arm64
-              python3 "$WORKSPACE/depot_tools/siso.py" ninja -C out/arm64 chrome_public_bundle --offline
-              python3 "$WORKSPACE/depot_tools/siso.py" ninja -C out/arm64 chrome_public_apk --offline
-
-              APK="$WORKSPACE/chromium/src/out/arm64/apks/ChromePublic.apk"
-              test -s "$APK"
-              cp "$APK" /niobium/dist/Niobium-Full-Android-arm64-debug.apk
-              cat > /niobium/dist/BUILD-INFO.txt <<EOF
-              Product: Niobium Full Android
-              Engine: Chromium with Cromite patches
-              Cromite version: $CROMITE_VERSION
-              Cromite commit: $CROMITE_SHA
-              Android package: app.niobium.browser.full
-              App label: Niobium
-              Architecture: arm64
-              Build type: debug
-              EOF
-            '
-
-      - name: Upload Niobium Full Android APK
+        env:
+          UGC_WORK: /mnt/ugc
+          DEBIAN_FRONTEND: noninteractive
+          CHROMIUM_SOURCE: ${{ inputs.chromium_source == 'github' && 'https://github.com/chromium/chromium.git' || 'https://chromium.googlesource.com/chromium/src.git' }}
+          NINJA_JOBS: ${{ inputs.threads }}
+        run: >
+          .github/scripts/hosted-build.sh --install-deps --prepare-only
+          --arch "${{ inputs.architecture }}"
+          --target chrome_modern_target
+      - name: Apply Niobium name, package ID and artwork
+        shell: bash
+        run: bash niobium/scripts/rebrand-ungoogled.sh /mnt/ugc/src /mnt/ugc niobium
+      - name: Save prepared Chromium tree
+        shell: bash
+        env:
+          UGC_WORK: /mnt/ugc
+        run: .github/scripts/hosted-export.sh
+      - name: Upload prepared tree
         uses: actions/upload-artifact@v4
         with:
-          name: Niobium-Full-Android-arm64-${{ steps.cromite.outputs.version }}-debug
-          path: dist/*
-          if-no-files-found: error
-          retention-days: 30
+          name: build-tree-${{ inputs.architecture }}
+          path: build-tree.tar.zst
+          retention-days: 1
+          compression-level: 0
+
+  part-01:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    outputs:
+      status: ${{ steps.stage.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ungoogled-software/ungoogled-chromium-android
+          ref: master
+          path: .
+      - uses: actions/checkout@v4
+        with:
+          repository: mahim11184/Niobium
+          ref: main
+          path: niobium
+      - id: stage
+        uses: ./niobium/.github/actions/niobium-build-stage
+        with:
+          architecture: ${{ inputs.architecture }}
+          chromium_source: ${{ inputs.chromium_source }}
+          threads: ${{ inputs.threads }}
+
+  part-02:
+    needs: part-01
+    if: needs.part-01.outputs.status == 'running'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    outputs:
+      status: ${{ steps.stage.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ungoogled-software/ungoogled-chromium-android
+          ref: master
+          path: .
+      - uses: actions/checkout@v4
+        with:
+          repository: mahim11184/Niobium
+          ref: main
+          path: niobium
+      - id: stage
+        uses: ./niobium/.github/actions/niobium-build-stage
+        with:
+          architecture: ${{ inputs.architecture }}
+          chromium_source: ${{ inputs.chromium_source }}
+          threads: ${{ inputs.threads }}
+
+  part-03:
+    needs: part-02
+    if: needs.part-02.outputs.status == 'running'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    outputs:
+      status: ${{ steps.stage.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ungoogled-software/ungoogled-chromium-android
+          ref: master
+          path: .
+      - uses: actions/checkout@v4
+        with:
+          repository: mahim11184/Niobium
+          ref: main
+          path: niobium
+      - id: stage
+        uses: ./niobium/.github/actions/niobium-build-stage
+        with:
+          architecture: ${{ inputs.architecture }}
+          chromium_source: ${{ inputs.chromium_source }}
+          threads: ${{ inputs.threads }}
+
+  part-04:
+    needs: part-03
+    if: needs.part-03.outputs.status == 'running'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    outputs:
+      status: ${{ steps.stage.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ungoogled-software/ungoogled-chromium-android
+          ref: master
+          path: .
+      - uses: actions/checkout@v4
+        with:
+          repository: mahim11184/Niobium
+          ref: main
+          path: niobium
+      - id: stage
+        uses: ./niobium/.github/actions/niobium-build-stage
+        with:
+          architecture: ${{ inputs.architecture }}
+          chromium_source: ${{ inputs.chromium_source }}
+          threads: ${{ inputs.threads }}
+
+  part-05:
+    needs: part-04
+    if: needs.part-04.outputs.status == 'running'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    outputs:
+      status: ${{ steps.stage.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ungoogled-software/ungoogled-chromium-android
+          ref: master
+          path: .
+      - uses: actions/checkout@v4
+        with:
+          repository: mahim11184/Niobium
+          ref: main
+          path: niobium
+      - id: stage
+        uses: ./niobium/.github/actions/niobium-build-stage
+        with:
+          architecture: ${{ inputs.architecture }}
+          chromium_source: ${{ inputs.chromium_source }}
+          threads: ${{ inputs.threads }}
+
+  part-06:
+    needs: part-05
+    if: needs.part-05.outputs.status == 'running'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    outputs:
+      status: ${{ steps.stage.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ungoogled-software/ungoogled-chromium-android
+          ref: master
+          path: .
+      - uses: actions/checkout@v4
+        with:
+          repository: mahim11184/Niobium
+          ref: main
+          path: niobium
+      - id: stage
+        uses: ./niobium/.github/actions/niobium-build-stage
+        with:
+          architecture: ${{ inputs.architecture }}
+          chromium_source: ${{ inputs.chromium_source }}
+          threads: ${{ inputs.threads }}
+
+  part-07:
+    needs: part-06
+    if: needs.part-06.outputs.status == 'running'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    outputs:
+      status: ${{ steps.stage.outputs.status }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ungoogled-software/ungoogled-chromium-android
+          ref: master
+          path: .
+      - uses: actions/checkout@v4
+        with:
+          repository: mahim11184/Niobium
+          ref: main
+          path: niobium
+      - id: stage
+        uses: ./niobium/.github/actions/niobium-build-stage
+        with:
+          architecture: ${{ inputs.architecture }}
+          chromium_source: ${{ inputs.chromium_source }}
+          threads: ${{ inputs.threads }}
+
+  part-08:
+    needs: part-07
+    if: needs.part-07.outputs.status == 'running'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ungoogled-software/ungoogled-chromium-android
+          ref: master
+          path: .
+      - uses: actions/checkout@v4
+        with:
+          repository: mahim11184/Niobium
+          ref: main
+          path: niobium
+      - id: stage
+        uses: ./niobium/.github/actions/niobium-build-stage
+        with:
+          architecture: ${{ inputs.architecture }}
+          chromium_source: ${{ inputs.chromium_source }}
+          threads: ${{ inputs.threads }}
