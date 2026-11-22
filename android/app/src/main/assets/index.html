@@ -2,20 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#07131b"><title>Niobium</title><link rel="stylesheet" href="style.css">
+<meta name="theme-color" content="#f5fbfc"><title>Niobium Lite</title><link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <div class="brand"><div class="logo">N</div><span>niobium</span></div>
-  <div class="controls">
-    <button aria-label="Back" onclick="go('back')">‹</button><button aria-label="Forward" onclick="go('forward')">›</button><button aria-label="Reload" onclick="go('reload')">↻</button><button aria-label="Home" onclick="go('home')">⌂</button>
-  </div>
-  <form id="search"><span>⌕</span><input id="address" autocomplete="off" autocapitalize="off" placeholder="Search or enter website"><button type="submit">Go</button></form>
-</header>
 <main id="welcome">
-  <div class="hero"><div class="hero-logo">N</div><p class="eyebrow">A FRESH WAY TO EXPLORE</p><h1>Welcome to <em>Niobium</em></h1><p class="sub">Your web, your space.</p>
-  <form id="hero-search"><input id="hero-address" placeholder="Search the web or enter a URL"><button type="submit">Explore ↗</button></form>
-  <div class="quick"><button data-url="https://www.google.com">Google</button><button data-url="https://www.wikipedia.org">Wikipedia</button><button data-url="https://www.youtube.com">YouTube</button></div></div>
+  <div class="hero">
+    <div class="hero-logo">N</div>
+    <p class="eyebrow">A FRESH WAY TO EXPLORE</p>
+    <h1>Welcome to <em>Niobium</em></h1>
+    <p class="sub">Your web, your space.</p>
+    <form id="hero-search"><input id="hero-address" autocomplete="off" autocapitalize="off" placeholder="Search the web or enter a URL"><button type="submit">Explore ↗</button></form>
+    <div class="quick"><button data-url="https://www.google.com">Google</button><button data-url="https://www.wikipedia.org">Wikipedia</button><button data-url="https://www.youtube.com">YouTube</button></div>
+  </div>
   <p class="foot">Powered by Android System WebView</p>
 </main>
 <script src="app.js"></script>
