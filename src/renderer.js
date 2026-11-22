@@ -13,8 +13,8 @@ function normalizeInput(value) {
   if (/^[\w.-]+\.[a-z]{2,}([/:?#]|$)/i.test(text)) return "https://" + text;
   return "https://www.google.com/search?q=" + encodeURIComponent(text);
 }
-
 function activeTab() { return tabs.find(tab => tab.id === activeId); }
+function setStatus(message) { statusText.textContent = message; }
 
 function renderTabs() {
   tabsEl.replaceChildren();
@@ -38,9 +38,6 @@ function renderTabs() {
     tabsEl.append(button);
   }
 }
-
-function setStatus(message) { statusText.textContent = message; }
-
 function makeWelcome() {
   const welcome = document.createElement("section");
   welcome.className = "welcome";
@@ -66,7 +63,6 @@ function makeWelcome() {
   welcome.querySelectorAll("[data-url]").forEach(button => button.addEventListener("click", () => navigate(button.dataset.url)));
   return welcome;
 }
-
 function createTab(url = "") {
   const id = nextId++;
   const view = document.createElement("webview");
@@ -75,23 +71,22 @@ function createTab(url = "") {
   view.setAttribute("allowpopups", "false");
   view.setAttribute("webpreferences", "contextIsolation=yes, javascript=yes");
   const tab = { id, title: "New tab", url: "", view, welcome: null };
-  view.addEventListener("page-title-updated", event => {
-    tab.title = event.title || "New tab";
+  view.addEventListener("page-title-updated", (_event, title) => {
+    tab.title = title || "New tab";
     renderTabs();
   });
-  view.addEventListener("did-navigate", event => {
-    tab.url = event.url;
-    if (activeId === id) address.value = event.url;
-    setStatus("Loaded");
+  view.addEventListener("did-navigate", (_event, url) => {
+    tab.url = url;
+    if (activeId === id) { address.value = url; setStatus("Loaded"); }
   });
-  view.addEventListener("did-navigate-in-page", event => {
-    tab.url = event.url;
-    if (activeId === id) address.value = event.url;
+  view.addEventListener("did-navigate-in-page", (_event, url) => {
+    tab.url = url;
+    if (activeId === id) address.value = url;
   });
   view.addEventListener("did-start-loading", () => { if (activeId === id) setStatus("Loading…"); });
   view.addEventListener("did-stop-loading", () => { if (activeId === id) setStatus("Ready"); });
-  view.addEventListener("did-fail-load", event => {
-    if (event.errorCode !== -3 && activeId === id) setStatus("Page could not be loaded");
+  view.addEventListener("did-fail-load", (_event, errorCode) => {
+    if (errorCode !== -3 && activeId === id) setStatus("Page could not be loaded");
   });
   tab.welcome = makeWelcome();
   viewport.append(view, tab.welcome);
@@ -99,7 +94,6 @@ function createTab(url = "") {
   activateTab(id);
   if (url) load(tab, url);
 }
-
 function activateTab(id) {
   activeId = id;
   for (const tab of tabs) {
@@ -113,7 +107,6 @@ function activateTab(id) {
   renderTabs();
   setStatus(tab?.url ? "Ready" : "New tab");
 }
-
 function load(tab, input) {
   const url = normalizeInput(input);
   tab.url = url;
@@ -124,13 +117,10 @@ function load(tab, input) {
   if (activeId === tab.id) address.value = url;
   renderTabs();
 }
-
 function navigate(input) {
   const tab = activeTab();
-  if (!tab) return;
-  load(tab, input);
+  if (tab) load(tab, input);
 }
-
 function closeTab(id) {
   const index = tabs.findIndex(tab => tab.id === id);
   if (index < 0) return;
@@ -147,9 +137,15 @@ document.getElementById("addressForm").addEventListener("submit", event => {
   event.preventDefault();
   navigate(address.value);
 });
-document.getElementById("back").addEventListener("click", () => { const tab = activeTab(); if (tab?.view.canGoBack()) tab.view.goBack(); });
-document.getElementById("forward").addEventListener("click", () => { const tab = activeTab(); if (tab?.view.canGoForward()) tab.view.goForward(); });
-document.getElementById("reload").addEventListener("click", () => { const tab = activeTab(); if (tab?.url) tab.view.reload(); });
+document.getElementById("back").addEventListener("click", () => {
+  const tab = activeTab(); if (tab?.view.canGoBack()) tab.view.goBack();
+});
+document.getElementById("forward").addEventListener("click", () => {
+  const tab = activeTab(); if (tab?.view.canGoForward()) tab.view.goForward();
+});
+document.getElementById("reload").addEventListener("click", () => {
+  const tab = activeTab(); if (tab?.url) tab.view.reload();
+});
 document.getElementById("home").addEventListener("click", () => {
   const tab = activeTab();
   if (!tab) return;
@@ -165,5 +161,4 @@ document.getElementById("home").addEventListener("click", () => {
 document.getElementById("menu").addEventListener("click", () => {
   setStatus("Niobium Browser · Electron / Chromium engine · early preview");
 });
-
 createTab();
