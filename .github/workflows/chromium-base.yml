@@ -1,6 +1,10 @@
 name: Get Niobium Chromium Base (Cromite)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/chromium-base.yml"
   workflow_dispatch:
   schedule:
     - cron: "17 5 * * 1"
