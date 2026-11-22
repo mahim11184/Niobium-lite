@@ -1,4 +1,4 @@
-name: Get Niobium Chromium Base (Cromite)
+name: Fetch Cromite Upstream Android APKs (Reference Only)
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  chromium-apks:
+  upstream-reference-apks:
     runs-on: ubuntu-latest
     steps:
       - name: Find latest official Cromite Android release
@@ -28,7 +28,7 @@ jobs:
           mkdir -p dist
           jq -r '.assets[] | select(.name == "arm64_ChromePublic.apk" or .name == "arm_ChromePublic.apk") | [.name, .browser_download_url] | @tsv' release.json > assets.tsv
           test "$(wc -l < assets.tsv)" -eq 2
-      - name: Download official Chromium-based APKs
+      - name: Download official unmodified Cromite APKs
         shell: bash
         run: |
           set -euo pipefail
@@ -37,10 +37,14 @@ jobs:
           done < assets.tsv
           cd dist
           sha256sum *.apk > SHA256SUMS.txt
-      - name: Upload Cromite APKs
+          printf '%s\n' \
+            'These are official, unmodified Cromite APKs for upstream reference/testing.' \
+            'They are NOT Niobium-branded builds. Renaming these files does not rebrand the installed app.' \
+            'Source: https://github.com/uazo/cromite' > README-UPSTREAM-ONLY.txt
+      - name: Upload upstream reference APKs (not Niobium builds)
         uses: actions/upload-artifact@v4
         with:
-          name: Niobium-Chromium-Base-Cromite-${{ steps.release.outputs.tag }}
+          name: Cromite-Upstream-Reference-Android-APKs-${{ steps.release.outputs.tag }}
           path: dist/*
           if-no-files-found: error
           retention-days: 30
