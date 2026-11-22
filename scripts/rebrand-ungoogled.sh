@@ -64,7 +64,7 @@ for d in "$SRC"/chrome/android/java/res_chromium_base/mipmap-*; do
   rsvg-convert -w "$size" -h "$size" "$BG" > "$d/layered_app_icon_background.png"
 done
 
-cat > "$WORK/NIОBIUM-BUILD-IDENTITY.txt" <<'EOF'
+cat > "$WORK/NIOBIUM-BUILD-IDENTITY.txt" <<'EOF'
 Product: Niobium Full
 Base: ungoogled-chromium-android
 Package: app.niobium.browser.full
