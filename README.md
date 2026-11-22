@@ -46,29 +46,30 @@ Build outputs are written to `dist/`. The package configuration includes Windows
 
 Niobium Lite uses Android System WebView. See [android/README.md](android/README.md) for building it through GitHub Actions. Its application ID is `app.niobium.browser`.
 
-## Android Full (Chromium + Cromite)
+## Android Full (ungoogled Chromium)
 
-Niobium Full is built from the Chromium source tree prepared by the upstream [Cromite project](https://github.com/uazo/cromite), retaining Cromite's browser patches while applying Niobium's own app identity and artwork.
+Niobium Full now uses the Android build system from [ungoogled-chromium-android](https://github.com/ungoogled-software/ungoogled-chromium-android), rather than the previous Cromite/self-hosted-runner setup.
 
-### Niobium branding applied by the build
-- App name and Android launcher label: **Niobium**
-- Android application ID: `app.niobium.browser.full` (separate from Lite, so both can be installed together)
-- Launcher and adaptive icon: generated from the existing `assets/icon.svg`
-- Themed monochrome launcher mark: Niobium N
-- Android widget titles, product metadata, and visible browser branding: Niobium
-- Help/about destinations and the built-in update channel: this Niobium GitHub repository, not Cromite's release channel
+### Niobium identity
+- App label: **Niobium**
+- Android application ID: `app.niobium.browser.full` (separate from Lite)
+- Launcher/adaptive artwork: generated from the Niobium SVG assets
+- Niobium Lite remains a separate Android System WebView app
 
-The source overlay is maintained in [scripts/rebrand-cromite.sh](scripts/rebrand-cromite.sh). It deliberately checks for the expected upstream branding strings before changing them, so an upstream layout change fails visibly instead of silently producing a partially branded APK.
+The source overlay is maintained in [scripts/rebrand-ungoogled.sh](scripts/rebrand-ungoogled.sh). It changes the Android app-name resources, sets the Full package ID, and generates launcher artwork. It intentionally fails if the expected app-name resources cannot be found.
 
-### Build workflow
+### Build from an Android phone
+1. Open the repository's **Actions** tab.
+2. Select **Build Niobium Full Android (ungoogled Chromium)**.
+3. Tap **Run workflow**.
+4. Select `arm64` for most modern Android phones, then start the workflow.
+5. When all build stages finish, download the `Niobium-Full-Android-arm64` artifact.
 
-Use [Build Niobium Full Android](.github/workflows/niobium-full-android.yml) from the repository's Actions tab. It resolves the latest Cromite release, pulls the matching prepared `uazo/cromite-build` image, applies the Niobium branding, and builds the arm64 `ChromePublic.apk` target. The artifact is named `Niobium-Full-Android-arm64-...-debug`.
+The workflow uses GitHub-hosted `ubuntu-latest` runners. It follows the upstream project's staged build-tree artifact process so the Chromium compilation can continue across multiple hosted jobs. No self-hosted computer is required.
 
-**Runner requirement:** this workflow is intentionally assigned to a self-hosted Linux x64 GitHub Actions runner with the label `cromite-builder`, Docker access, and substantial persistent disk/memory. A normal GitHub-hosted runner is not used: Cromite's documented Chromium build relies on a large prepared source/build image, persistent build outputs, and long-running custom runners. The workflow will remain queued until a matching self-hosted runner is registered. See [Cromite's build instructions](https://github.com/uazo/cromite/blob/master/docs/HOW_TO_BUILD.md).
+**Build status:** this workflow and branding overlay have been committed, but a successful Niobium APK build has not yet been verified. The first run is the integration test. The produced APK must be checked for its actual package name, displayed app name, icon, and signing status before distribution. A persistent release keystore is not configured; do not treat the first artifact as a production-signed release.
 
-The current workflow produces an **arm64 debug/test APK**, not a production release. No private release keystore is stored in this repository. A production distribution needs a persistent signing key protected in GitHub Actions secrets and a release workflow; never commit the keystore or its password.
-
-The separate `Fetch Cromite Upstream Android APKs (Reference Only)` workflow only downloads upstream APKs for reference. Those files remain Cromite, are not Niobium builds, and are not used by the Niobium Full build workflow.
+The upstream ungoogled-chromium-android project includes Chromium, ungoogled-chromium, and Android-specific patches. Preserve its license and all third-party notices when redistributing the browser.
 
 ## Project structure
 - `src/main.js` — Electron main process and secure window setup
