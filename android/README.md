@@ -1,6 +1,6 @@
-# Niobium for Android
+# Niobium Lite for Android
 
-This is the Android companion app for the Niobium desktop browser. It uses Android System WebView for page rendering and keeps the desktop Electron app separate.
+This is Niobium Lite, the low-memory Android edition. It uses Android System WebView for page rendering. It is not the main Chromium-based browser.
 
 ## Build on GitHub (no PC required)
 
