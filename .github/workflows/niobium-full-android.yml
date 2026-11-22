@@ -1,0 +1,104 @@
+name: Build Niobium Full Android (Cromite Chromium)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-full-android:
+    # A full Chromium build needs the large persistent Cromite builder, not a
+    # standard GitHub-hosted runner.
+    runs-on: [self-hosted, linux, x64, cromite-builder]
+    timeout-minutes: 1440
+
+    steps:
+      - name: Checkout Niobium
+        uses: actions/checkout@v4
+
+      - name: Resolve latest Cromite source and matching build image
+        id: cromite
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://api.github.com/repos/uazo/cromite/releases/latest -o release.json
+          TAG="$(jq -r .tag_name release.json)"
+          VERSION="$(printf '%s' "$TAG" | sed -E 's/^v([0-9.]+)-([0-9a-f]{40})$/\1/')"
+          SHA="$(printf '%s' "$TAG" | sed -E 's/^v([0-9.]+)-([0-9a-f]{40})$/\2/')"
+          [[ -n "$VERSION" && "$VERSION" != "$TAG" ]]
+          [[ -n "$SHA" && "$SHA" != "$TAG" ]]
+          IMAGE="uazo/cromite-build:$VERSION-$SHA"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          docker pull "$IMAGE"
+
+      - name: Prepare artifact directory
+        shell: bash
+        run: |
+          mkdir -p dist
+          chmod 0777 dist
+
+      - name: Apply Niobium branding and build arm64 APK
+        env:
+          IMAGE: ${ steps.cromite.outputs.image }}
+          CROMITE_VERSION: ${ steps.cromite.outputs.version }}
+          CROMITE_SHA: ${ steps.cromite.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -e WORKSPACE=/home/lg/working_dir \
+            -e HOME=/home/lg/working_dir \
+            -e TARGET_ISDEBUG=true \
+            -e CROMITE_VERSION="$CROMITE_VERSION" \
+            -e CROMITE_SHA="$CROMITE_SHA" \
+            -v "$GITHUB_WORKSPACE:/niobium" \
+            --entrypoint /bin/bash \
+            "$IMAGE" -lc '
+              set -euo pipefail
+              export WORKSPACE=/home/lg/working_dir
+              export HOME=/home/lg/working_dir
+              export PATH="$WORKSPACE/chromium/src/third_party/llvm-build/Release+Asserts/bin:$WORKSPACE/depot_tools:/usr/local/go/bin:$WORKSPACE/mtool/bin:$PATH"
+
+              test -d "$WORKSPACE/chromium/src"
+              test -f "$WORKSPACE/cromite/build/cromite.gn_args"
+
+              if ! command -v rsvg-convert >/dev/null 2>&1; then
+                sudo apt-get update
+                sudo apt-get install -y librsvg2-bin
+              fi
+
+              /niobium/scripts/rebrand-cromite.sh \
+                "$WORKSPACE/cromite" \
+                "$WORKSPACE/chromium/src" \
+                /niobium
+
+              cd "$WORKSPACE/chromium/src"
+              gn gen --args="target_os = \"android\" $(cat "$WORKSPACE/cromite/build/cromite.gn_args") target_cpu = \"arm64\"" out/arm64
+              python3 "$WORKSPACE/depot_tools/siso.py" ninja -C out/arm64 chrome_public_bundle --offline
+              python3 "$WORKSPACE/depot_tools/siso.py" ninja -C out/arm64 chrome_public_apk --offline
+
+              APK="$WORKSPACE/chromium/src/out/arm64/apks/ChromePublic.apk"
+              test -s "$APK"
+              cp "$APK" /niobium/dist/Niobium-Full-Android-arm64-debug.apk
+              cat > /niobium/dist/BUILD-INFO.txt <<EOF
+              Product: Niobium Full Android
+              Engine: Chromium with Cromite patches
+              Cromite version: $CROMITE_VERSION
+              Cromite commit: $CROMITE_SHA
+              Android package: app.niobium.browser.full
+              App label: Niobium
+              Architecture: arm64
+              Build type: debug
+              EOF
+            '
+
+      - name: Upload Niobium Full Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Niobium-Full-Android-arm64-${ steps.cromite.outputs.version }}-debug
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
