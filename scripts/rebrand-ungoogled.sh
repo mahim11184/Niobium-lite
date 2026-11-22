@@ -18,6 +18,12 @@ grep -q '^chrome_public_manifest_package[[:space:]]*=' "$ARGS" \
   && sed -i 's/^chrome_public_manifest_package[[:space:]]*=.*/chrome_public_manifest_package = "app.niobium.browser.full"/' "$ARGS" \
   || printf '\nchrome_public_manifest_package = "app.niobium.browser.full"\n' >> "$ARGS"
 
+# The upstream prepare step already generated GN files. Regenerate them after
+# changing the package argument so the package identity reaches the APK.
+GN="$SRC/buildtools/linux64/gn"
+test -x "$GN" || { echo "GN executable missing: $GN" >&2; exit 1; }
+"$GN" gen "$SRC/out/Default" --fail-on-unused-args
+
 python3 - "$SRC" <<'PY'
 from pathlib import Path
 import xml.etree.ElementTree as ET
