@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "android/**"
+      - "assets/icon.svg"
       - ".github/workflows/android-apk.yml"
   workflow_dispatch:
 
@@ -22,15 +23,25 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Prepare Niobium Lite launcher icon
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+          for spec in "mdpi:48" "hdpi:72" "xhdpi:96" "xxhdpi:144" "xxxhdpi:192"; do
+            density="${spec%%:*}"
+            size="${spec##*:}"
+            mkdir -p "android/app/src/main/res/mipmap-${density}"
+            rsvg-convert -w "${size}" -h "${size}" assets/icon.svg > "android/app/src/main/res/mipmap-${density}/ic_launcher.png"
+          done
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-      - name: Build debug APK
+      - name: Build Niobium Lite APK
         working-directory: android
         run: gradle --no-daemon assembleDebug
-      - name: Upload APK
+      - name: Upload Niobium Lite APK
         uses: actions/upload-artifact@v4
         with:
-          name: Niobium-Android-APK
+          name: Niobium-Lite-Android-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
