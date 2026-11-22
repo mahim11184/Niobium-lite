@@ -8,9 +8,9 @@ Niobium is an open-source browser project with separate desktop and Android edit
 |---|---|---|---|
 | Niobium Desktop | Windows, macOS, Linux | Chromium via Electron | Desktop starter |
 | Niobium Lite | Android | Android System WebView | Lightweight Android app |
-| Niobium Full | Android | Chromium with Cromite patches | Source-level Niobium branding and arm64 build workflow configured |
+| Niobium Full | Android | ungoogled Chromium | Hosted staged build workflow configured; first APK build not yet verified |
 
-Niobium Full is a separate Chromium browser build, not a WebView wrapper and not a renamed Cromite APK. Niobium Lite remains a separate, smaller WebView app.
+Niobium Full is a separate Chromium browser build, not a WebView wrapper or a renamed upstream APK. Niobium Lite remains a separate, smaller WebView app.
 
 ## Desktop edition
 
