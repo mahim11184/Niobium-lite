@@ -42,9 +42,9 @@ jobs:
 
       - name: Apply Niobium branding and build arm64 APK
         env:
-          IMAGE: ${ steps.cromite.outputs.image }}
-          CROMITE_VERSION: ${ steps.cromite.outputs.version }}
-          CROMITE_SHA: ${ steps.cromite.outputs.sha }}
+          IMAGE: ${{ steps.cromite.outputs.image }}
+          CROMITE_VERSION: ${{ steps.cromite.outputs.version }}
+          CROMITE_SHA: ${{ steps.cromite.outputs.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -70,7 +70,7 @@ jobs:
                 sudo apt-get install -y librsvg2-bin
               fi
 
-              /niobium/scripts/rebrand-cromite.sh \
+              bash /niobium/scripts/rebrand-cromite.sh \
                 "$WORKSPACE/cromite" \
                 "$WORKSPACE/chromium/src" \
                 /niobium
@@ -98,7 +98,7 @@ jobs:
       - name: Upload Niobium Full Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: Niobium-Full-Android-arm64-${ steps.cromite.outputs.version }}-debug
+          name: Niobium-Full-Android-arm64-${{ steps.cromite.outputs.version }}-debug
           path: dist/*
           if-no-files-found: error
           retention-days: 30
