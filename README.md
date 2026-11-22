@@ -79,8 +79,9 @@ The upstream ungoogled-chromium-android project includes Chromium, ungoogled-chr
 - `src/renderer.js` — tabs, navigation, and address handling
 - `assets/icon.svg` — main Niobium app icon
 - `assets/niobium-foreground.svg` / `assets/niobium-background.svg` — adaptive launcher icon layers
-- `scripts/rebrand-cromite.sh` — source-level Full Android rebrand
-- `.github/workflows/niobium-full-android.yml` — Full Chromium Android build
+- `scripts/rebrand-ungoogled.sh` — source-level Full Android rebrand overlay
+- `.github/workflows/niobium-full-android.yml` — staged hosted Full Chromium Android build
+- `.github/actions/niobium-build-stage/action.yml` — Niobium branding and hosted build stage
 - `android/` — Niobium Lite Android WebView project
 
 ## Security notes
