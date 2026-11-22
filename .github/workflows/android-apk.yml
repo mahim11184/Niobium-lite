@@ -1,4 +1,4 @@
-name: Build Niobium Android APK
+name: Build Niobium Lite (Android WebView APK)
 
 on:
   push:
