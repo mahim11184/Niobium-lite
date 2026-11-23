@@ -60,38 +60,44 @@ public class MainActivity extends Activity {
     }
     private void buildShell() {
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.WHITE);
-        topBar=new LinearLayout(this); topBar.setGravity(Gravity.CENTER); topBar.setPadding(14,5,14,5);
-        topBar.setBackgroundColor(Color.WHITE);
-        topBar.addView(action("←",31,()->goBack()),new LinearLayout.LayoutParams(0,54,1));
-        topBar.addView(action("⌂",31,()->active().loadUrl("file:///android_asset/index.html")),new LinearLayout.LayoutParams(0,54,1));
-        tabButton=action("▦",29,()->showTabs()); topBar.addView(tabButton,new LinearLayout.LayoutParams(0,54,1));
-        topBar.addView(action("● i",22,()->showInfo()),new LinearLayout.LayoutParams(0,54,1));
-        root.addView(topBar,new LinearLayout.LayoutParams(-1,58));
-        View topLine=new View(this); topLine.setBackgroundColor(0xffeeeeee); root.addView(topLine,new LinearLayout.LayoutParams(-1,1));
-        pageHost=new FrameLayout(this); root.addView(pageHost,new LinearLayout.LayoutParams(-1,0,1));
-        bottomBar=new LinearLayout(this); bottomBar.setGravity(Gravity.CENTER_VERTICAL); bottomBar.setPadding(12,8,12,8); bottomBar.setBackgroundColor(Color.WHITE);
-        leafButton=action(theme.icon,27,()->active().loadUrl("file:///android_asset/index.html"));
-        bottomBar.addView(leafButton,new LinearLayout.LayoutParams(48,54));
-        address=new EditText(this); address.setSingleLine(true); address.setTextSize(16); address.setTextColor(0xff5d6870);
-        address.setHintTextColor(0xff929ba1); address.setHint("Search Niobium or URL"); address.setPadding(16,0,8,0);
-        address.setBackground(shape(0xfff0f1f2,0,40)); address.setSelectAllOnFocus(true); address.setImeOptions(EditorInfo.IME_ACTION_GO);
+
+        // TOP: wide address/search bar with theme controls (matches the supplied top reference).
+        bottomBar=new LinearLayout(this); bottomBar.setGravity(Gravity.CENTER_VERTICAL); bottomBar.setPadding(18,12,18,12); bottomBar.setBackgroundColor(Color.WHITE);
+        leafButton=action(theme.icon,34,()->active().loadUrl("file:///android_asset/index.html"));
+        bottomBar.addView(leafButton,new LinearLayout.LayoutParams(64,64));
+        address=new EditText(this); address.setSingleLine(true); address.setTextSize(19); address.setTextColor(0xff5d6870);
+        address.setHintTextColor(0xff929ba1); address.setHint("Search Niobium or URL"); address.setPadding(22,0,12,0);
+        address.setBackground(shape(0xfff0f1f2,0,48)); address.setSelectAllOnFocus(true); address.setImeOptions(EditorInfo.IME_ACTION_GO);
         address.setOnEditorActionListener((v,id,event)->{if(id==EditorInfo.IME_ACTION_GO){navigate(address.getText().toString());return true;}return false;});
-        bottomBar.addView(address,new LinearLayout.LayoutParams(0,54,1));
-        TextView go=action("GO",18,()->navigate(address.getText().toString())); go.setTextColor(theme.accent); go.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-        bottomBar.addView(go,new LinearLayout.LayoutParams(54,54));
-        paletteButton=action("●",27,()->showThemes()); paletteButton.setTextColor(theme.accent);
-        bottomBar.addView(paletteButton,new LinearLayout.LayoutParams(48,54));
+        bottomBar.addView(address,new LinearLayout.LayoutParams(0,64,1));
+        TextView go=action("GO",21,()->navigate(address.getText().toString())); go.setTextColor(theme.accent); go.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        bottomBar.addView(go,new LinearLayout.LayoutParams(62,64));
+        paletteButton=action("🎨",31,()->showThemes()); paletteButton.setTextColor(theme.accent);
+        bottomBar.addView(paletteButton,new LinearLayout.LayoutParams(64,64));
         View underline=new View(this); underline.setBackgroundColor(theme.accent);
-        LinearLayout bottomWrap=new LinearLayout(this); bottomWrap.setOrientation(LinearLayout.VERTICAL); bottomWrap.addView(bottomBar); bottomWrap.addView(underline,new LinearLayout.LayoutParams(-1,3));
-        root.addView(bottomWrap,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout searchWrap=new LinearLayout(this); searchWrap.setOrientation(LinearLayout.VERTICAL);
+        searchWrap.addView(bottomBar,new LinearLayout.LayoutParams(-1,88));
+        searchWrap.addView(underline,new LinearLayout.LayoutParams(-1,5));
+        root.addView(searchWrap,new LinearLayout.LayoutParams(-1,-2));
+
+        pageHost=new FrameLayout(this); root.addView(pageHost,new LinearLayout.LayoutParams(-1,0,1));
+
+        // BOTTOM: thick navigation strip (back, home, tabs, info).
+        topBar=new LinearLayout(this); topBar.setGravity(Gravity.CENTER); topBar.setPadding(16,8,16,8); topBar.setBackgroundColor(Color.WHITE);
+        topBar.addView(action("←",38,()->goBack()),new LinearLayout.LayoutParams(0,72,1));
+        topBar.addView(action("⌂",39,()->active().loadUrl("file:///android_asset/index.html")),new LinearLayout.LayoutParams(0,72,1));
+        tabButton=action("▦",35,()->showTabs()); topBar.addView(tabButton,new LinearLayout.LayoutParams(0,72,1));
+        topBar.addView(action("● i",27,()->showInfo()),new LinearLayout.LayoutParams(0,72,1));
+        root.addView(topBar,new LinearLayout.LayoutParams(-1,88));
+
         setContentView(root); applyTheme();
     }
     private void applyTheme(){
-        root.setBackgroundColor(theme.background); leafButton.setText(theme.icon); paletteButton.setTextColor(theme.accent);
-        address.setBackground(shape(theme.soft,0,40)); address.setHintTextColor(0xff929ba1);
+        root.setBackgroundColor(theme.background); leafButton.setText(theme.icon); paletteButton.setText("🎨"); paletteButton.setTextColor(theme.accent);
+        address.setBackground(shape(theme.soft,0,48)); address.setHintTextColor(0xff929ba1);
         for(int i=0;i<topBar.getChildCount();i++) ((TextView)topBar.getChildAt(i)).setTextColor(theme.ink);
-        bottomBar.setBackgroundColor(Color.WHITE);
-        View underline=((LinearLayout)root.getChildAt(3)).getChildAt(1); underline.setBackgroundColor(theme.accent);
+        topBar.setBackgroundColor(Color.WHITE); bottomBar.setBackgroundColor(Color.WHITE);
+        View underline=((LinearLayout)root.getChildAt(0)).getChildAt(1); underline.setBackgroundColor(theme.accent);
     }
     private WebView active(){return tabs.get(current);}
     private WebView createWebView(){
