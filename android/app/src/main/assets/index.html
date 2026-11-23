@@ -1,20 +1,681 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#f5fbfc"><title>Niobium Lite</title><link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Niobium Lite — New Tab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            niobium: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#2563eb',
+              600: '#1d4ed8',
+              900: '#0f172a',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Subtle architectural dot grid for light & dark themes */
+    .bg-grid-light {
+      background-color: #f8fafc;
+      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .dark .bg-grid-light {
+      background-color: #090d16;
+      background-image: radial-gradient(#1e293b 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    /* Smooth custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 9999px;
+    }
+  </style>
 </head>
-<body>
-<main id="welcome">
-  <div class="hero">
-    <div class="hero-logo">N</div>
-    <p class="eyebrow">A FRESH WAY TO EXPLORE</p>
-    <h1>Welcome to <em>Niobium</em></h1>
-    <p class="sub">Your web, your space.</p>
-    <form id="hero-search"><input id="hero-address" autocomplete="off" autocapitalize="off" placeholder="Search the web or enter a URL"><button type="submit">Explore ↗</button></form>
-    <div class="quick"><button data-url="https://www.google.com">Google</button><button data-url="https://www.wikipedia.org">Wikipedia</button><button data-url="https://www.youtube.com">YouTube</button></div>
+<body class="bg-grid-light text-slate-900 dark:text-slate-100 min-h-screen flex flex-col justify-between transition-colors duration-300 selection:bg-blue-500/20 selection:text-blue-700">
+
+  <!-- Top Minimal Status & Controls Bar -->
+  <header class="w-full max-w-6xl mx-auto px-4 sm:px-6 pt-5 pb-2 flex items-center justify-between gap-3">
+    <!-- Left: Shield & Privacy Telemetry Pill -->
+    <div class="flex items-center gap-2.5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 px-3.5 py-1.5 rounded-full shadow-sm">
+      <span class="relative flex h-2 w-2">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+      </span>
+      <span class="text-xs font-medium text-slate-600 dark:text-slate-300">Niobium Shield</span>
+      <span class="text-slate-300 dark:text-slate-700">|</span>
+      <span id="trackerCount" class="text-xs font-mono font-semibold text-blue-600 dark:text-blue-400">142 blocked</span>
+    </div>
+
+    <!-- Right: Compact Clock, Storage Status & Theme Toggle -->
+    <div class="flex items-center gap-2">
+      <!-- Compact Live Clock -->
+      <div class="hidden sm:flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 px-3.5 py-1.5 rounded-full shadow-sm text-xs font-medium text-slate-600 dark:text-slate-300">
+        <span id="compactDate" class="text-slate-400 dark:text-slate-500">Mon, Nov 23</span>
+        <span class="text-slate-300 dark:text-slate-700">•</span>
+        <span id="compactClock" class="font-mono font-semibold text-slate-800 dark:text-slate-200">11:47 PM</span>
+      </div>
+
+      <!-- Scratchpad Toggle -->
+      <button
+        id="notesToggleBtn"
+        type="button"
+        title="Quick Notes"
+        class="p-2.5 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 transition shadow-sm"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      </button>
+
+      <!-- Light / Dark Theme Toggle -->
+      <button
+        id="themeToggleBtn"
+        type="button"
+        title="Switch Theme"
+        class="p-2.5 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 transition shadow-sm"
+      >
+        <!-- Moon icon shown in Light Mode -->
+        <svg id="moonIcon" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+        <!-- Sun icon shown in Dark Mode -->
+        <svg id="sunIcon" class="w-4 h-4 hidden dark:block text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Centerpiece: Niobium Lite Brand, Search Bar & Speed Dial -->
+  <main class="w-full max-w-3xl mx-auto px-4 sm:px-6 my-auto py-8 flex flex-col items-center">
+
+    <!-- Brand Identity Header -->
+    <div class="flex flex-col items-center text-center mb-8 select-none">
+      <div class="inline-flex items-center gap-3.5 mb-2">
+        <!-- Minimalist Geometric Niobium Emblem (Nb 41) -->
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-600/20 text-white">
+          <svg class="w-7 h-7" viewBox="0 0 32 32" fill="none">
+            <path d="M8 23V9L17 23V9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="23.5" cy="16" r="3.5" stroke="currentColor" stroke-width="2.4"/>
+          </svg>
+        </div>
+        <div class="flex items-baseline gap-2.5">
+          <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            Niobium
+          </h1>
+          <span class="px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border border-blue-200/80 dark:border-blue-500/30">
+            Lite
+          </span>
+        </div>
+      </div>
+      <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+        Fast, private, lightweight web navigation
+      </p>
+    </div>
+
+    <!-- Omni-Search Bar Container -->
+    <div class="w-full mb-10">
+      <form id="searchForm" class="relative group">
+        <div class="flex items-center w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus-within:border-blue-500 dark:focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 rounded-2xl shadow-md shadow-slate-200/50 dark:shadow-none transition-all duration-200 px-3 py-2">
+          
+          <!-- Search Engine Selector Dropdown -->
+          <div class="relative flex items-center">
+            <select
+              id="engineSelect"
+              aria-label="Search Engine"
+              class="appearance-none bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl pl-3 pr-7 py-2 cursor-pointer focus:outline-none transition"
+            >
+              <option value="google">Google</option>
+              <option value="duckduckgo">DuckDuckGo</option>
+              <option value="brave">Brave</option>
+              <option value="bing">Bing</option>
+              <option value="youtube">YouTube</option>
+            </select>
+            <svg class="w-3.5 h-3.5 text-slate-500 pointer-events-none absolute right-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+
+          <!-- Search Input -->
+          <input
+            id="searchInput"
+            type="text"
+            autocomplete="off"
+            placeholder="Search the web or enter URL..."
+            class="w-full bg-transparent px-3.5 py-2 text-sm sm:text-base text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none"
+          />
+
+          <!-- Clear Input Button -->
+          <button
+            id="clearSearchBtn"
+            type="button"
+            class="hidden p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition mr-1"
+            title="Clear"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <!-- Submit Search Button -->
+          <button
+            type="submit"
+            title="Search"
+            class="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white transition shadow-sm flex-shrink-0"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Shortcuts / Speed Dial Section -->
+    <section class="w-full">
+      <div class="flex items-center justify-between mb-3.5 px-1">
+        <div class="flex items-center gap-2">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            Quick Access
+          </h2>
+          <span id="saveIndicator" class="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 opacity-0 transition-opacity duration-300">
+            • Saved
+          </span>
+        </div>
+        <button
+          id="resetDefaultsBtn"
+          type="button"
+          class="text-xs text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition"
+          title="Restore default shortcuts"
+        >
+          Reset defaults
+        </button>
+      </div>
+
+      <!-- Responsive Speed Dial Grid -->
+      <div id="shortcutsGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 sm:gap-4">
+        <!-- Shortcut items injected dynamically via JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Minimal Footer -->
+  <footer class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500">
+    <div class="flex items-center gap-2">
+      <span>Press <kbd class="px-1.5 py-0.5 text-[11px] font-mono bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-600 dark:text-slate-300">/</kbd> to search</span>
+    </div>
+    <div>
+      Niobium Lite Engine • Zero Telemetry
+    </div>
+  </footer>
+
+  <!-- Add Shortcut Modal -->
+  <div id="addModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-md p-6 transform transition-all">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-slate-900 dark:text-white">Add Shortcut</h3>
+        <button id="closeModalBtn" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="addShortcutForm" class="space-y-4">
+        <div>
+          <label for="siteNameInput" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">Name</label>
+          <input
+            id="siteNameInput"
+            type="text"
+            required
+            placeholder="e.g. GitHub"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+          />
+        </div>
+        <div>
+          <label for="siteUrlInput" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">URL</label>
+          <input
+            id="siteUrlInput"
+            type="text"
+            required
+            placeholder="e.g. github.com"
+            class="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+          />
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button
+            id="cancelModalBtn"
+            type="button"
+            class="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition"
+          >
+            Save Shortcut
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
-  <p class="foot">Powered by Android System WebView</p>
-</main>
-<script src="app.js"></script>
-</body></html>
+
+  <!-- Quick Scratchpad Drawer -->
+  <div id="notesDrawer" class="fixed top-16 right-4 sm:right-6 z-40 hidden w-80 max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-4">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Session Notes</span>
+      <button id="closeNotesBtn" type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <textarea
+      id="scratchpadArea"
+      rows="5"
+      placeholder="Jot down quick links or notes..."
+      class="w-full text-xs leading-relaxed p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 resize-none"
+    ></textarea>
+  </div>
+
+  <!-- Toast Notification Banner -->
+  <div id="toastBanner" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-medium px-4 py-2.5 rounded-full shadow-lg">
+    Shortcut saved
+  </div>
+
+  <script>
+    /**
+     * Resilient Storage Manager
+     * Uses localStorage when available, and automatically mirrors data into
+     * window.name so shortcuts and settings persist even inside sandboxed iframes
+     * or restricted file:// contexts where localStorage might throw SecurityError.
+     */
+    const NiobiumStore = (() => {
+      const PREFIX = 'niobium_lite_v1_';
+      let memoryCache = {};
+
+      // Hydrate from window.name if present
+      try {
+        if (window.name && window.name.startsWith(PREFIX)) {
+          memoryCache = JSON.parse(window.name.slice(PREFIX.length)) || {};
+        }
+      } catch (e) {
+        memoryCache = {};
+      }
+
+      function syncWindowName() {
+        try {
+          window.name = PREFIX + JSON.stringify(memoryCache);
+        } catch (e) {
+          // Ignore if cross-origin restriction prevents writing window.name
+        }
+      }
+
+      return {
+        get(key, fallback) {
+          try {
+            const raw = window.localStorage.getItem(PREFIX + key);
+            if (raw !== null) {
+              const parsed = JSON.parse(raw);
+              memoryCache[key] = parsed;
+              return parsed;
+            }
+          } catch (e) {
+            // Fallback to memoryCache / window.name
+          }
+          return key in memoryCache ? memoryCache[key] : fallback;
+        },
+        set(key, value) {
+          memoryCache[key] = value;
+          syncWindowName();
+          try {
+            window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
+          } catch (e) {
+            // Fallback already persisted in memoryCache & window.name
+          }
+        }
+      };
+    })();
+
+    // Default Speed Dial Shortcuts
+    const DEFAULT_SHORTCUTS = [
+      { id: 'sc-1', name: 'YouTube', url: 'https://www.youtube.com' },
+      { id: 'sc-2', name: 'GitHub', url: 'https://github.com' },
+      { id: 'sc-3', name: 'Gmail', url: 'https://mail.google.com' },
+      { id: 'sc-4', name: 'Wikipedia', url: 'https://www.wikipedia.org' },
+      { id: 'sc-5', name: 'Reddit', url: 'https://www.reddit.com' },
+      { id: 'sc-6', name: 'ChatGPT', url: 'https://chatgpt.com' },
+      { id: 'sc-7', name: 'X', url: 'https://x.com' },
+      { id: 'sc-8', name: 'Maps', url: 'https://maps.google.com' },
+      { id: 'sc-game', name: 'Flappy Nyan', url: 'file:///android_asset/games/flappy-nyan.html', local: true }
+    ];
+
+    // Search Engine URL Templates
+    const SEARCH_ENGINES = {
+      google: 'https://www.google.com/search?q=',
+      duckduckgo: 'https://duckduckgo.com/?q=',
+      brave: 'https://search.brave.com/search?q=',
+      bing: 'https://www.bing.com/search?q=',
+      youtube: 'https://www.youtube.com/results?search_query='
+    };
+
+    // State
+    let shortcuts = NiobiumStore.get('shortcuts', DEFAULT_SHORTCUTS);
+    let currentTheme = NiobiumStore.get('theme', 'light'); // Default to Light Mode
+    let currentEngine = NiobiumStore.get('engine', 'google');
+    let savedNotes = NiobiumStore.get('notes', '');
+
+    // DOM Elements
+    const shortcutsGrid = document.getElementById('shortcutsGrid');
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = document.getElementById('searchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const engineSelect = document.getElementById('engineSelect');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const addModal = document.getElementById('addModal');
+    const addShortcutForm = document.getElementById('addShortcutForm');
+    const siteNameInput = document.getElementById('siteNameInput');
+    const siteUrlInput = document.getElementById('siteUrlInput');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelModalBtn = document.getElementById('cancelModalBtn');
+    const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
+    const saveIndicator = document.getElementById('saveIndicator');
+    const toastBanner = document.getElementById('toastBanner');
+    const notesToggleBtn = document.getElementById('notesToggleBtn');
+    const notesDrawer = document.getElementById('notesDrawer');
+    const closeNotesBtn = document.getElementById('closeNotesBtn');
+    const scratchpadArea = document.getElementById('scratchpadArea');
+
+    /**
+     * Apply Light or Dark Theme
+     */
+    function applyTheme(theme) {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      NiobiumStore.set('theme', theme);
+    }
+
+    /**
+     * Show brief toast & saved indicator
+     */
+    let toastTimeout;
+    function showSavedFeedback(message = 'Shortcuts saved') {
+      saveIndicator.classList.remove('opacity-0');
+      setTimeout(() => saveIndicator.classList.add('opacity-0'), 1800);
+
+      toastBanner.textContent = message;
+      toastBanner.classList.remove('opacity-0');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toastBanner.classList.add('opacity-0');
+      }, 2200);
+    }
+
+    /**
+     * Normalize URLs so links always navigate cleanly
+     */
+    function normalizeUrl(rawUrl) {
+      let trimmed = rawUrl.trim();
+      if (!/^https?:\/\//i.test(trimmed)) {
+        trimmed = 'https://' + trimmed;
+      }
+      return trimmed;
+    }
+
+    /**
+     * Extract clean domain for favicon resolution
+     */
+    function getDomain(url) {
+      try {
+        return new URL(url).hostname;
+      } catch (e) {
+        return 'example.com';
+      }
+    }
+
+    /**
+     * Render all shortcuts + "Add Shortcut" tile
+     */
+    function renderShortcuts() {
+      shortcutsGrid.innerHTML = '';
+
+      shortcuts.forEach((item) => {
+        const domain = getDomain(item.url);
+        const isLocalGame = item.local === true || item.url.startsWith('file:///android_asset/');
+        const faviconUrl = isLocalGame ? '' : `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+
+        // Use native <a> tag with target="_top" so clicking redirects directly even from preview iframes
+        const card = document.createElement('a');
+        card.href = item.url;
+        card.target = '_top';
+        card.rel = 'noopener noreferrer';
+        card.className = 'group relative flex flex-col items-center justify-center p-4 rounded-2xl bg-white/90 dark:bg-slate-900/90 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-500/50 shadow-sm hover:shadow-md transition-all duration-200 select-none';
+
+        // Remove shortcut button (top-right on hover)
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.title = `Remove ${item.name}`;
+        removeBtn.className = 'opacity-0 group-hover:opacity-100 focus:opacity-100 absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-red-100 dark:hover:bg-red-900/50 text-slate-400 hover:text-red-600 flex items-center justify-center transition';
+        removeBtn.innerHTML = `
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        `;
+        removeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          shortcuts = shortcuts.filter((s) => s.id !== item.id);
+          NiobiumStore.set('shortcuts', shortcuts);
+          renderShortcuts();
+          showSavedFeedback(`Removed ${item.name}`);
+        });
+
+        // Direct Favicon Container (clean subtle tile, no colorful cube)
+        const iconWrapper = document.createElement('div');
+        iconWrapper.className = 'w-11 h-11 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/70 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform';
+
+        const img = document.createElement('img');
+        img.src = faviconUrl;
+        img.alt = item.name;
+        if (isLocalGame) { img.remove(); iconWrapper.textContent = '🐱'; iconWrapper.style.fontSize = '25px'; }
+        img.className = 'w-6 h-6 object-contain rounded-sm';
+        img.onerror = function () {
+          this.onerror = null;
+          this.src = `https://placehold.co/48x48/e2e8f0/334155?text=${encodeURIComponent(item.name.charAt(0).toUpperCase())}`;
+        };
+
+        iconWrapper.appendChild(img);
+
+        // Shortcut Label
+        const label = document.createElement('span');
+        label.className = 'text-xs font-medium text-slate-700 dark:text-slate-200 truncate max-w-full px-1';
+        label.textContent = item.name;
+
+        card.appendChild(removeBtn);
+        card.appendChild(iconWrapper);
+        card.appendChild(label);
+        shortcutsGrid.appendChild(card);
+      });
+
+      // Add Shortcut Action Tile
+      const addTile = document.createElement('button');
+      addTile.type = 'button';
+      addTile.className = 'group flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-100/70 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-400 transition-all duration-200';
+      addTile.innerHTML = `
+        <div class="w-11 h-11 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center mb-2.5 text-slate-400 group-hover:text-blue-600 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        </div>
+        <span class="text-xs font-medium text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">Add Site</span>
+      `;
+      addTile.addEventListener('click', openAddModal);
+      shortcutsGrid.appendChild(addTile);
+    }
+
+    /**
+     * Modal Controls
+     */
+    function openAddModal() {
+      siteNameInput.value = '';
+      siteUrlInput.value = '';
+      addModal.classList.remove('hidden');
+      addModal.classList.add('flex');
+      setTimeout(() => siteNameInput.focus(), 50);
+    }
+
+    function closeAddModal() {
+      addModal.classList.add('hidden');
+      addModal.classList.remove('flex');
+    }
+
+    addShortcutForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = siteNameInput.value.trim();
+      const rawUrl = siteUrlInput.value.trim();
+      if (!name || !rawUrl) return;
+
+      const normalizedUrl = normalizeUrl(rawUrl);
+      shortcuts.push({
+        id: 'sc-' + Date.now(),
+        name,
+        url: normalizedUrl
+      });
+
+      NiobiumStore.set('shortcuts', shortcuts);
+      renderShortcuts();
+      closeAddModal();
+      showSavedFeedback(`Saved "${name}"`);
+    });
+
+    closeModalBtn.addEventListener('click', closeAddModal);
+    cancelModalBtn.addEventListener('click', closeAddModal);
+    addModal.addEventListener('click', (e) => {
+      if (e.target === addModal) closeAddModal();
+    });
+
+    resetDefaultsBtn.addEventListener('click', () => {
+      shortcuts = [...DEFAULT_SHORTCUTS];
+      NiobiumStore.set('shortcuts', shortcuts);
+      renderShortcuts();
+      showSavedFeedback('Restored default shortcuts');
+    });
+
+    /**
+     * Omni-Search Submission (URL detection vs Search Query)
+     */
+    searchForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const query = searchInput.value.trim();
+      if (!query) return;
+
+      const isUrl = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(\/.*)?$/.test(query) && !query.includes(' ');
+      const targetUrl = isUrl
+        ? normalizeUrl(query)
+        : (SEARCH_ENGINES[engineSelect.value] || SEARCH_ENGINES.google) + encodeURIComponent(query);
+
+      if (window.Niobium && typeof Niobium.open === 'function') Niobium.open(targetUrl);
+      else window.location.href = targetUrl;
+    });
+
+    searchInput.addEventListener('input', () => {
+      clearSearchBtn.classList.toggle('hidden', searchInput.value.length === 0);
+    });
+
+    clearSearchBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      clearSearchBtn.classList.add('hidden');
+      searchInput.focus();
+    });
+
+    engineSelect.value = currentEngine;
+    engineSelect.addEventListener('change', () => {
+      NiobiumStore.set('engine', engineSelect.value);
+    });
+
+    /**
+     * Theme Toggle
+     */
+    themeToggleBtn.addEventListener('click', () => {
+      currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+      applyTheme(currentTheme);
+    });
+
+    /**
+     * Notes Drawer
+     */
+    scratchpadArea.value = savedNotes;
+    scratchpadArea.addEventListener('input', () => {
+      NiobiumStore.set('notes', scratchpadArea.value);
+    });
+
+    notesToggleBtn.addEventListener('click', () => {
+      notesDrawer.classList.toggle('hidden');
+      if (!notesDrawer.classList.contains('hidden')) {
+        scratchpadArea.focus();
+      }
+    });
+
+    closeNotesBtn.addEventListener('click', () => {
+      notesDrawer.classList.add('hidden');
+    });
+
+    /**
+     * Keyboard Shortcuts ('/' focuses search, 'Escape' closes modals)
+     */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        searchInput.focus();
+      } else if (e.key === 'Escape') {
+        closeAddModal();
+        notesDrawer.classList.add('hidden');
+      }
+    });
+
+    /**
+     * Compact Top-Bar Clock Updater
+     */
+    function updateCompactClock() {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const dateStr = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      document.getElementById('compactClock').textContent = timeStr;
+      document.getElementById('compactDate').textContent = dateStr;
+    }
+
+    // Initialize Application
+    applyTheme(currentTheme);
+    renderShortcuts();
+    updateCompactClock();
+    setInterval(updateCompactClock, 15000);
+  </script>
+</body>
+</html>
