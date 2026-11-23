@@ -50,6 +50,7 @@ public class MainActivity extends Activity {
     private final ArrayList<WebView> tabs = new ArrayList<>();
     private final ArrayList<String> titles = new ArrayList<>();
     private int current = 0;
+    private String lastFailedUrl = "https://www.google.com";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -131,6 +132,15 @@ public class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return false;}
             @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){if(view==active()&&!url.startsWith("file:"))address.setText(url);}
             @Override public void onPageFinished(WebView view,String url){CookieManager.getInstance().flush();if(view==active()&&!url.startsWith("file:"))address.setText(url);}
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,android.webkit.WebResourceError error){
+                if(request.isForMainFrame()){
+                    String failed=request.getUrl().toString();
+                    if(failed.startsWith("http://")||failed.startsWith("https://")){
+                        lastFailedUrl=failed;
+                        view.loadUrl("file:///android_asset/no-connection.html");
+                    }
+                }
+            }
         }); return w;
     }
     private void startDownload(String url,String userAgent,String contentDisposition,String mimeType){
@@ -200,7 +210,7 @@ public class MainActivity extends Activity {
     private void showInfo(){new AlertDialog.Builder(this).setTitle("Niobium Lite").setMessage("A lightweight browser powered by Android System WebView.").setPositiveButton("OK",null).show();}
     private void navigate(String input){String v=input==null?"":input.trim();if(v.isEmpty())return;if(!v.matches("^[a-zA-Z][a-zA-Z0-9+.-]*:.*"))v=v.matches("^(localhost|\\d{1,3}(\\.\\d{1,3}){3}|[^\\s]+\\.[^\\s]+)(/.*)?$")?"https://"+v:"https://www.google.com/search?q="+android.net.Uri.encode(v);active().loadUrl(v);((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);address.clearFocus();}
     private void goBack(){if(active().canGoBack())active().goBack();}
-    private class BrowserBridge{private final WebView owner;BrowserBridge(WebView w){owner=w;}@android.webkit.JavascriptInterface public void open(String u){runOnUiThread(()->{if(u!=null&&(u.startsWith("https://")||u.startsWith("http://")||u.startsWith("file:///android_asset/")))owner.loadUrl(u);});}@android.webkit.JavascriptInterface public void back(){runOnUiThread(()->{if(owner.canGoBack())owner.goBack();});}@android.webkit.JavascriptInterface public void forward(){runOnUiThread(()->owner.goForward());}@android.webkit.JavascriptInterface public void reload(){runOnUiThread(owner::reload);}@android.webkit.JavascriptInterface public void home(){runOnUiThread(()->owner.loadUrl("file:///android_asset/index.html"));}}
+    private class BrowserBridge{private final WebView owner;BrowserBridge(WebView w){owner=w;}@android.webkit.JavascriptInterface public void open(String u){runOnUiThread(()->{if(u!=null&&(u.startsWith("https://")||u.startsWith("http://")||u.startsWith("file:///android_asset/")))owner.loadUrl(u);});}@android.webkit.JavascriptInterface public void back(){runOnUiThread(()->{if(owner.canGoBack())owner.goBack();});}@android.webkit.JavascriptInterface public void forward(){runOnUiThread(()->owner.goForward());}@android.webkit.JavascriptInterface public void reload(){runOnUiThread(owner::reload);}@android.webkit.JavascriptInterface public void home(){runOnUiThread(()->owner.loadUrl("file:///android_asset/index.html"));}@android.webkit.JavascriptInterface public void retry(){runOnUiThread(()->owner.loadUrl(lastFailedUrl));}}
     @Override public void onBackPressed(){if(active().canGoBack())active().goBack();else super.onBackPressed();}
     @Override protected void onDestroy(){for(WebView w:tabs)w.destroy();tabs.clear();super.onDestroy();}
 }
