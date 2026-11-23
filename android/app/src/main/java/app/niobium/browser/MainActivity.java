@@ -58,37 +58,49 @@ public class MainActivity extends Activity {
         TextView t=new TextView(this); t.setText(value); t.setTextSize(size); t.setTextColor(theme.ink);
         t.setGravity(Gravity.CENTER); t.setOnClickListener(v->run.run()); return t;
     }
+    private int dp(float value){return Math.round(value*getResources().getDisplayMetrics().density);}
     private void buildShell() {
+        // Keep the app inside the usable screen area; Android handles status/navigation bar insets.
+        getWindow().getDecorView().setSystemUiVisibility(0);
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.WHITE);
+        root.setClipChildren(true); root.setClipToPadding(true);
 
-        // TOP: wide address/search bar with theme controls (matches the supplied top reference).
-        bottomBar=new LinearLayout(this); bottomBar.setGravity(Gravity.CENTER_VERTICAL); bottomBar.setPadding(18,12,18,12); bottomBar.setBackgroundColor(Color.WHITE);
-        leafButton=action(theme.icon,34,()->active().loadUrl("file:///android_asset/index.html"));
-        bottomBar.addView(leafButton,new LinearLayout.LayoutParams(64,64));
-        address=new EditText(this); address.setSingleLine(true); address.setTextSize(19); address.setTextColor(0xff5d6870);
-        address.setHintTextColor(0xff929ba1); address.setHint("Search Niobium or URL"); address.setPadding(22,0,12,0);
-        address.setBackground(shape(0xfff0f1f2,0,48)); address.setSelectAllOnFocus(true); address.setImeOptions(EditorInfo.IME_ACTION_GO);
+        // TOP: responsive search/address bar. All widths are weighted or compact fixed dp slots.
+        bottomBar=new LinearLayout(this); bottomBar.setOrientation(LinearLayout.HORIZONTAL);
+        bottomBar.setGravity(Gravity.CENTER_VERTICAL); bottomBar.setPadding(dp(8),dp(6),dp(8),dp(6));
+        bottomBar.setBackgroundColor(Color.WHITE); bottomBar.setClipChildren(true);
+        leafButton=action(theme.icon,30,()->active().loadUrl("file:///android_asset/index.html"));
+        bottomBar.addView(leafButton,new LinearLayout.LayoutParams(dp(44),dp(52)));
+        address=new EditText(this); address.setSingleLine(true); address.setTextSize(17); address.setTextColor(0xff5d6870);
+        address.setHintTextColor(0xff929ba1); address.setHint("Search or enter URL"); address.setPadding(dp(14),0,dp(8),0);
+        address.setMinWidth(0); address.setBackground(shape(0xfff0f1f2,0,dp(32)));
+        address.setSelectAllOnFocus(true); address.setImeOptions(EditorInfo.IME_ACTION_GO);
         address.setOnEditorActionListener((v,id,event)->{if(id==EditorInfo.IME_ACTION_GO){navigate(address.getText().toString());return true;}return false;});
-        bottomBar.addView(address,new LinearLayout.LayoutParams(0,64,1));
-        TextView go=action("GO",21,()->navigate(address.getText().toString())); go.setTextColor(theme.accent); go.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-        bottomBar.addView(go,new LinearLayout.LayoutParams(62,64));
-        paletteButton=action("🎨",31,()->showThemes()); paletteButton.setTextColor(theme.accent);
-        bottomBar.addView(paletteButton,new LinearLayout.LayoutParams(64,64));
+        LinearLayout.LayoutParams addressParams=new LinearLayout.LayoutParams(0,dp(52),1f);
+        addressParams.leftMargin=dp(4); addressParams.rightMargin=dp(4);
+        bottomBar.addView(address,addressParams);
+        TextView go=action("GO",17,()->navigate(address.getText().toString())); go.setTextColor(theme.accent); go.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        bottomBar.addView(go,new LinearLayout.LayoutParams(dp(42),dp(52)));
+        paletteButton=action("🎨",25,()->showThemes()); paletteButton.setTextColor(theme.accent);
+        bottomBar.addView(paletteButton,new LinearLayout.LayoutParams(dp(44),dp(52)));
         View underline=new View(this); underline.setBackgroundColor(theme.accent);
         LinearLayout searchWrap=new LinearLayout(this); searchWrap.setOrientation(LinearLayout.VERTICAL);
-        searchWrap.addView(bottomBar,new LinearLayout.LayoutParams(-1,88));
-        searchWrap.addView(underline,new LinearLayout.LayoutParams(-1,5));
+        searchWrap.addView(bottomBar,new LinearLayout.LayoutParams(-1,dp(68)));
+        searchWrap.addView(underline,new LinearLayout.LayoutParams(-1,dp(4)));
         root.addView(searchWrap,new LinearLayout.LayoutParams(-1,-2));
 
-        pageHost=new FrameLayout(this); root.addView(pageHost,new LinearLayout.LayoutParams(-1,0,1));
+        pageHost=new FrameLayout(this); pageHost.setClipChildren(true);
+        root.addView(pageHost,new LinearLayout.LayoutParams(-1,0,1f));
 
-        // BOTTOM: thick navigation strip (back, home, tabs, info).
-        topBar=new LinearLayout(this); topBar.setGravity(Gravity.CENTER); topBar.setPadding(16,8,16,8); topBar.setBackgroundColor(Color.WHITE);
-        topBar.addView(action("←",38,()->goBack()),new LinearLayout.LayoutParams(0,72,1));
-        topBar.addView(action("⌂",39,()->active().loadUrl("file:///android_asset/index.html")),new LinearLayout.LayoutParams(0,72,1));
-        tabButton=action("▦",35,()->showTabs()); topBar.addView(tabButton,new LinearLayout.LayoutParams(0,72,1));
-        topBar.addView(action("● i",27,()->showInfo()),new LinearLayout.LayoutParams(0,72,1));
-        root.addView(topBar,new LinearLayout.LayoutParams(-1,88));
+        // BOTTOM: four equally sized navigation targets; no fixed total width.
+        topBar=new LinearLayout(this); topBar.setOrientation(LinearLayout.HORIZONTAL);
+        topBar.setGravity(Gravity.CENTER); topBar.setPadding(dp(6),dp(4),dp(6),dp(4));
+        topBar.setBackgroundColor(Color.WHITE); topBar.setClipChildren(true);
+        topBar.addView(action("←",32,()->goBack()),new LinearLayout.LayoutParams(0,dp(64),1f));
+        topBar.addView(action("⌂",34,()->active().loadUrl("file:///android_asset/index.html")),new LinearLayout.LayoutParams(0,dp(64),1f));
+        tabButton=action("▦",30,()->showTabs()); topBar.addView(tabButton,new LinearLayout.LayoutParams(0,dp(64),1f));
+        topBar.addView(action("ⓘ",29,()->showInfo()),new LinearLayout.LayoutParams(0,dp(64),1f));
+        root.addView(topBar,new LinearLayout.LayoutParams(-1,dp(72)));
 
         setContentView(root); applyTheme();
     }
