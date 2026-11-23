@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080d18">
+<title>No connection — Niobium Lite</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at 50% 25%,#172b48 0,#0b1424 42%,#070b13 100%);color:#edf5ff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center}
+main{width:100%;max-width:420px}.signal{width:104px;height:104px;margin:0 auto 26px;border:1px solid #294568;border-radius:32px;background:#10213a;display:grid;place-items:center;font-size:48px;box-shadow:0 18px 60px #0006}
+.tag{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#76b7ff;font-weight:800}h1{font-size:32px;line-height:1.15;margin:12px 0}p{color:#9fb1c9;line-height:1.65;margin:0 auto 28px;max-width:330px;font-size:14px}
+.actions{display:grid;gap:12px}.btn{display:block;border:0;border-radius:15px;padding:16px 18px;text-decoration:none;font-size:15px;font-weight:750;cursor:pointer}.play{background:linear-gradient(135deg,#68e0b4,#38b9d6);color:#06202a;box-shadow:0 10px 30px #31c7bd33}.retry{background:#18283e;color:#dceaff;border:1px solid #2b4261}.home{display:block;margin-top:20px;color:#8da7c6;text-decoration:none;font-size:13px}.foot{margin-top:42px;color:#536781;font-size:11px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<main>
+  <div class="signal" aria-hidden="true">📡</div>
+  <div class="tag">NIOBIUM LITE</div>
+  <h1>No connection</h1>
+  <p>Looks like you're offline. Check your internet connection, or take a little break and play Flappy Nyan.</p>
+  <div class="actions">
+    <a class="btn play" href="file:///android_asset/games/flappy-nyan.html" onclick="if(window.Niobium){event.preventDefault();Niobium.open('file:///android_asset/games/flappy-nyan.html')}">🐱 Play Flappy Nyan</a>
+    <button class="btn retry" onclick="if(window.Niobium)Niobium.retry();">↻ Try again</button>
+  </div>
+  <a class="home" href="file:///android_asset/index.html" onclick="if(window.Niobium){event.preventDefault();Niobium.home()}">← Back to Niobium home</a>
+  <div class="foot">OFFLINE MODE · STILL READY TO PLAY</div>
+</main>
+</body>
+</html>
