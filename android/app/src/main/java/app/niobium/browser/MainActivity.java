@@ -2,7 +2,9 @@ package app.niobium.browser;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DownloadManager;
 import android.os.Bundle;
+import android.os.Environment;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -15,11 +17,15 @@ import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.DownloadListener;
+import android.webkit.URLUtil;
 import android.webkit.WebResourceRequest;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+import android.net.Uri;
 import java.util.ArrayList;
 
 public class MainActivity extends Activity {
@@ -118,11 +124,38 @@ public class MainActivity extends Activity {
         w.getSettings().setSupportZoom(true); w.getSettings().setBuiltInZoomControls(true); w.getSettings().setDisplayZoomControls(false);
         w.addJavascriptInterface(new BrowserBridge(w),"Niobium");
         w.setWebChromeClient(new WebChromeClient(){@Override public void onReceivedTitle(WebView view,String title){int i=tabs.indexOf(view);if(i>=0)titles.set(i,title==null?"New tab":title);}});
+        w.setDownloadListener((url,userAgent,contentDisposition,mimeType,contentLength)->startDownload(url,userAgent,contentDisposition,mimeType));
         w.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return false;}
             @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon){if(view==active()&&!url.startsWith("file:"))address.setText(url);}
             @Override public void onPageFinished(WebView view,String url){CookieManager.getInstance().flush();if(view==active()&&!url.startsWith("file:"))address.setText(url);}
         }); return w;
+    }
+    private void startDownload(String url,String userAgent,String contentDisposition,String mimeType){
+        if(url==null || !(url.startsWith("http://") || url.startsWith("https://"))){
+            Toast.makeText(this,"This download link is not supported",Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            String fileName=URLUtil.guessFileName(url,contentDisposition,mimeType);
+            DownloadManager.Request request=new DownloadManager.Request(Uri.parse(url));
+            request.setTitle(fileName);
+            request.setDescription("Downloading with Niobium Lite");
+            request.setMimeType(mimeType);
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,fileName);
+            String cookie=CookieManager.getInstance().getCookie(url);
+            if(cookie!=null) request.addRequestHeader("Cookie",cookie);
+            if(userAgent!=null) request.addRequestHeader("User-Agent",userAgent);
+            request.setAllowedOverMetered(true);
+            request.setAllowedOverRoaming(false);
+            DownloadManager manager=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
+            if(manager==null) throw new IllegalStateException("Download service unavailable");
+            manager.enqueue(request);
+            Toast.makeText(this,"Download started: "+fileName+" — check Downloads",Toast.LENGTH_LONG).show();
+        } catch(Exception e) {
+            Toast.makeText(this,"Could not start download: "+e.getMessage(),Toast.LENGTH_LONG).show();
+        }
     }
     private void addTab(String url){WebView w=createWebView();tabs.add(w);titles.add("New tab");pageHost.addView(w,new FrameLayout.LayoutParams(-1,-1));switchTab(tabs.size()-1);w.loadUrl(url);}
     private void switchTab(int index){if(index<0||index>=tabs.size())return;current=index;for(int i=0;i<tabs.size();i++)tabs.get(i).setVisibility(i==current?View.VISIBLE:View.GONE);tabButton.setText("▦");String u=active().getUrl();address.setText(u==null||u.startsWith("file:")?"":u);}
