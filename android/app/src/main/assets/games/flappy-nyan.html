@@ -60,6 +60,8 @@
         [class~="text-white"] { color: #fff; }
         [class~="text-cyan-400"] { color: #22d3ee; }
         [class~="text-xs"] { font-size: .75rem; }
+        [class~="text-[8px]"] { font-size: 8px; }
+        [class~="text-[9px]"] { font-size: 9px; }
         [class~="tracking-wide"] { letter-spacing: .08em; }
         [class~="uppercase"] { text-transform: uppercase; }
         [class~="mt-2"] { margin-top: .5rem; }
@@ -337,7 +339,7 @@
 
         // Input Controls
         window.onmousedown = () => { if(state==='PLAYING') player.v = -5.5; };
-        window.ontouchstart = (e) => { e.preventDefault(); if(state==='PLAYING') player.v = -5.5; };
+        window.ontouchstart = (e) => { if (e.target.closest('button, a')) return; e.preventDefault(); if(state==='PLAYING') player.v = -5.5; };
         document.getElementById('start-btn').onclick = start;
         document.getElementById('retry-btn').onclick = start;
 
