@@ -13,6 +13,8 @@ import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
@@ -105,7 +107,7 @@ public class MainActivity extends Activity {
         topBar.addView(action("←",32,()->goBack()),new LinearLayout.LayoutParams(0,dp(64),1f));
         topBar.addView(action("⌂",34,()->active().loadUrl("file:///android_asset/index.html")),new LinearLayout.LayoutParams(0,dp(64),1f));
         tabButton=action("▦",30,()->showTabs()); topBar.addView(tabButton,new LinearLayout.LayoutParams(0,dp(64),1f));
-        topBar.addView(action("ⓘ",29,()->showInfo()),new LinearLayout.LayoutParams(0,dp(64),1f));
+        topBar.addView(action("☰",29,()->showMenu()),new LinearLayout.LayoutParams(0,dp(64),1f));
         root.addView(topBar,new LinearLayout.LayoutParams(-1,dp(72)));
 
         setContentView(root); applyTheme();
@@ -120,7 +122,7 @@ public class MainActivity extends Activity {
     private WebView active(){return tabs.get(current);}
     private WebView createWebView(){
         WebView w=new WebView(this); CookieManager.getInstance().setAcceptThirdPartyCookies(w,true); w.setBackgroundColor(Color.WHITE);
-        w.getSettings().setJavaScriptEnabled(true); w.getSettings().setDomStorageEnabled(true); w.getSettings().setDatabaseEnabled(true);
+        w.getSettings().setJavaScriptEnabled(getSharedPreferences("niobium_settings",MODE_PRIVATE).getBoolean("javascript_enabled",true)); w.getSettings().setDomStorageEnabled(true); w.getSettings().setDatabaseEnabled(true);
         w.getSettings().setSupportZoom(true); w.getSettings().setBuiltInZoomControls(true); w.getSettings().setDisplayZoomControls(false);
         w.addJavascriptInterface(new BrowserBridge(w),"Niobium");
         w.setWebChromeClient(new WebChromeClient(){@Override public void onReceivedTitle(WebView view,String title){int i=tabs.indexOf(view);if(i>=0)titles.set(i,title==null?"New tab":title);}});
@@ -162,7 +164,40 @@ public class MainActivity extends Activity {
     private void showTabs(){String[] items=new String[tabs.size()+1];for(int i=0;i<tabs.size();i++)items[i]=(i==current?"✓ ":"")+(titles.get(i).isEmpty()?"New tab":titles.get(i));items[tabs.size()]="＋ New tab";new AlertDialog.Builder(this).setTitle("Niobium tabs").setItems(items,(d,n)->{if(n==tabs.size())addTab("file:///android_asset/index.html");else switchTab(n);}).setNeutralButton("Close current tab",(d,n)->closeTab()).show();}
     private void closeTab(){if(tabs.size()<=1){active().loadUrl("file:///android_asset/index.html");return;}WebView w=active();pageHost.removeView(w);w.destroy();tabs.remove(current);titles.remove(current);switchTab(Math.max(0,current-1));}
     private void showThemes(){String[] names=new String[themes.length];for(int i=0;i<themes.length;i++)names[i]=themes[i].icon+"  "+themes[i].name+(themes[i]==theme?"  ✓":"");new AlertDialog.Builder(this).setTitle("Choose your Niobium theme").setItems(names,(d,n)->{theme=themes[n];applyTheme();}).show();}
-    private void showInfo(){new AlertDialog.Builder(this).setTitle("Niobium Lite").setMessage("A lightweight browser powered by Android System WebView. Choose a theme with the palette button.").setPositiveButton("OK",null).show();}
+    private void showMenu(){
+        String[] items={"Downloads","Settings","About Niobium Lite"};
+        new AlertDialog.Builder(this).setTitle("Niobium menu").setItems(items,(d,n)->{
+            if(n==0)showDownloads(); else if(n==1)showSettings(); else showInfo();
+        }).show();
+    }
+    private void showDownloads(){
+        try { startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)); }
+        catch(Exception e){ Toast.makeText(this,"Open the Downloads app on your phone",Toast.LENGTH_LONG).show(); }
+    }
+    private void showSettings(){
+        SharedPreferences prefs=getSharedPreferences("niobium_settings",MODE_PRIVATE);
+        boolean js=prefs.getBoolean("javascript_enabled",true);
+        String[] items={"JavaScript: "+(js?"On":"Off"),"Clear browsing data"};
+        new AlertDialog.Builder(this).setTitle("Settings").setItems(items,(d,n)->{
+            if(n==0){
+                boolean next=!prefs.getBoolean("javascript_enabled",true);
+                prefs.edit().putBoolean("javascript_enabled",next).apply();
+                for(WebView w:tabs)w.getSettings().setJavaScriptEnabled(next);
+                Toast.makeText(this,"JavaScript "+(next?"enabled":"disabled"),Toast.LENGTH_SHORT).show();
+                showSettings();
+            } else clearBrowsingData();
+        }).setNegativeButton("Close",null).show();
+    }
+    private void clearBrowsingData(){
+        new AlertDialog.Builder(this).setTitle("Clear browsing data?")
+            .setMessage("This clears page cache, browsing history and website cookies. Saved passwords managed by websites may also be affected.")
+            .setNegativeButton("Cancel",null).setPositiveButton("Clear",(d,n)->{
+                for(WebView w:tabs){w.clearCache(true);w.clearHistory();w.clearFormData();}
+                CookieManager.getInstance().removeAllCookies(null);CookieManager.getInstance().flush();
+                Toast.makeText(this,"Browsing data cleared",Toast.LENGTH_SHORT).show();
+            }).show();
+    }
+    private void showInfo(){new AlertDialog.Builder(this).setTitle("Niobium Lite").setMessage("A lightweight browser powered by Android System WebView.").setPositiveButton("OK",null).show();}
     private void navigate(String input){String v=input==null?"":input.trim();if(v.isEmpty())return;if(!v.matches("^[a-zA-Z][a-zA-Z0-9+.-]*:.*"))v=v.matches("^(localhost|\\d{1,3}(\\.\\d{1,3}){3}|[^\\s]+\\.[^\\s]+)(/.*)?$")?"https://"+v:"https://www.google.com/search?q="+android.net.Uri.encode(v);active().loadUrl(v);((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);address.clearFocus();}
     private void goBack(){if(active().canGoBack())active().goBack();}
     private class BrowserBridge{private final WebView owner;BrowserBridge(WebView w){owner=w;}@android.webkit.JavascriptInterface public void open(String u){runOnUiThread(()->{if(u!=null&&(u.startsWith("https://")||u.startsWith("http://")))owner.loadUrl(u);});}@android.webkit.JavascriptInterface public void back(){runOnUiThread(()->{if(owner.canGoBack())owner.goBack();});}@android.webkit.JavascriptInterface public void forward(){runOnUiThread(()->owner.goForward());}@android.webkit.JavascriptInterface public void reload(){runOnUiThread(owner::reload);}@android.webkit.JavascriptInterface public void home(){runOnUiThread(()->owner.loadUrl("file:///android_asset/index.html"));}}
