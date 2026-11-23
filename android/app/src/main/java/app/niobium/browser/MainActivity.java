@@ -137,6 +137,7 @@ public class MainActivity extends Activity {
                     String failed=request.getUrl().toString();
                     if(failed.startsWith("http://")||failed.startsWith("https://")){
                         lastFailedUrl=failed;
+                        if(view==active())address.setText("");
                         view.loadUrl("file:///android_asset/no-connection.html");
                     }
                 }
