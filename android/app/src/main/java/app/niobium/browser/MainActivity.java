@@ -225,12 +225,57 @@ public class MainActivity extends Activity {
         toggle.setOnCheckedChangeListener((button,checked)->{getSharedPreferences("niobium_settings",MODE_PRIVATE).edit().putBoolean(key,checked).apply();changed.accept(checked);});
         row.addView(toggle);LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2);rp.bottomMargin=dp(10);rows.addView(row,rp);
     }
+    private boolean menuSheetOpen=false;
+    private View menuSheetRoot;
     private void showMenu(){
-        LinearLayout rows=pageRows();
-        addPageRow(rows,"⇩","Downloads","View progress and downloaded files",()->showDownloads());
-        addPageRow(rows,"⚙","Settings","Privacy, permissions and browsing preferences",()->showSettings());
-        addPageRow(rows,"ⓘ","About Niobium Lite","Version, browser engine and credits",()->showInfo());
-        openFullPage("Niobium","Browser menu",rows,()->closeFullPage());
+        if(menuSheetOpen)return;
+        FrameLayout overlay=new FrameLayout(this);overlay.setBackgroundColor(Color.TRANSPARENT);
+        overlay.addView(root,new FrameLayout.LayoutParams(-1,-1));
+        View dim=new View(this);dim.setBackgroundColor(0x99000000);dim.setAlpha(0f);
+        overlay.addView(dim,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout sheet=new LinearLayout(this);sheet.setOrientation(LinearLayout.VERTICAL);
+        sheet.setPadding(dp(20),dp(10),dp(20),dp(26));
+        GradientDrawable bg=new GradientDrawable();bg.setColor(Color.WHITE);bg.setCornerRadii(new float[]{dp(26),dp(26),dp(26),dp(26),0,0,0,0});sheet.setBackground(bg);
+        LinearLayout.LayoutParams sheetParams=new LinearLayout.LayoutParams(-1,-2,Gravity.BOTTOM);
+        sheetParams.gravity=Gravity.BOTTOM;
+        View handle=new View(this);handle.setBackground(shape(0xffcbd2d8,0,dp(8)));
+        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(dp(42),dp(5));hp.gravity=Gravity.CENTER;hp.bottomMargin=dp(18);sheet.addView(handle,hp);
+        LinearLayout heading=new LinearLayout(this);heading.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title=panelText("Niobium menu",23,0xff17212b);title.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        heading.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+        TextView close=panelText("✕",21,0xff66727c);close.setGravity(Gravity.CENTER);close.setOnClickListener(v->closeMenuSheet(null));
+        heading.addView(close,new LinearLayout.LayoutParams(dp(42),dp(42)));sheet.addView(heading);
+        TextView hint=panelText("Quick access to your browser tools",13,0xff77838d);
+        LinearLayout.LayoutParams hintp=new LinearLayout.LayoutParams(-1,-2);hintp.topMargin=dp(3);hintp.bottomMargin=dp(18);sheet.addView(hint,hintp);
+        LinearLayout grid=new LinearLayout(this);grid.setOrientation(LinearLayout.HORIZONTAL);
+        addMenuTile(grid,"⇩","Downloads",()->closeMenuSheet(()->showDownloads()));
+        addMenuTile(grid,"⚙","Settings",()->closeMenuSheet(()->showSettings()));
+        addMenuTile(grid,"ⓘ","About",()->closeMenuSheet(()->showInfo()));
+        sheet.addView(grid);
+        TextView footer=panelText("Niobium Lite",12,0xff9aa3aa);footer.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(-1,-2);fp.topMargin=dp(18);sheet.addView(footer,fp);
+        overlay.addView(sheet,sheetParams);
+        dim.setOnClickListener(v->closeMenuSheet(null));
+        menuSheetRoot=overlay;menuSheetOpen=true;setContentView(overlay);
+        sheet.post(()->{sheet.setTranslationY(sheet.getHeight());sheet.animate().translationY(0).setDuration(360).setInterpolator(new android.view.animation.OvershootInterpolator(0.75f)).start();dim.animate().alpha(1f).setDuration(220).start();});
+    }
+    private void addMenuTile(LinearLayout grid,String icon,String label,Runnable action){
+        LinearLayout tile=new LinearLayout(this);tile.setOrientation(LinearLayout.VERTICAL);tile.setGravity(Gravity.CENTER);
+        tile.setPadding(dp(8),dp(16),dp(8),dp(16));tile.setBackground(shape(0xfff2f6f8,0xffe5ebef,dp(18)));
+        TextView glyph=panelText(icon,29,theme.accent);glyph.setGravity(Gravity.CENTER);tile.addView(glyph,new LinearLayout.LayoutParams(-1,dp(46)));
+        TextView name=panelText(label,14,0xff26323b);name.setTypeface(Typeface.DEFAULT,Typeface.BOLD);name.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(7);tile.addView(name,np);
+        tile.setOnClickListener(v->action.run());
+        LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(0,-2,1);tp.leftMargin=dp(4);tp.rightMargin=dp(4);grid.addView(tile,tp);
+    }
+    private void closeMenuSheet(Runnable after){
+        if(!menuSheetOpen){if(after!=null)after.run();return;}
+        View overlay=menuSheetRoot;View dim=overlay instanceof FrameLayout?((FrameLayout)overlay).getChildAt(1):null;
+        View sheet=overlay instanceof FrameLayout?((FrameLayout)overlay).getChildAt(2):null;
+        if(sheet!=null)sheet.animate().translationY(sheet.getHeight()).setDuration(220).setInterpolator(new android.view.animation.AccelerateInterpolator()).withEndAction(()->{
+            menuSheetOpen=false;menuSheetRoot=null;setContentView(root);if(after!=null)after.run();
+        }).start();else{menuSheetOpen=false;menuSheetRoot=null;setContentView(root);if(after!=null)after.run();}
+        if(dim!=null)dim.animate().alpha(0f).setDuration(180).start();
     }
     private void showDownloads(){
         LinearLayout rows=pageRows();
@@ -294,6 +339,6 @@ public class MainActivity extends Activity {
     private void navigate(String input){String v=input==null?"":input.trim();if(v.isEmpty())return;if(!v.matches("^[a-zA-Z][a-zA-Z0-9+.-]*:.*"))v=v.matches("^(localhost|\\d{1,3}(\\.\\d{1,3}){3}|[^\\s]+\\.[^\\s]+)(/.*)?$")?"https://"+v:"https://www.google.com/search?q="+android.net.Uri.encode(v);active().loadUrl(v);((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);address.clearFocus();}
     private void goBack(){if(active().canGoBack())active().goBack();}
     private class BrowserBridge{private final WebView owner;BrowserBridge(WebView w){owner=w;}@android.webkit.JavascriptInterface public void open(String u){runOnUiThread(()->{if(u!=null&&(u.startsWith("https://")||u.startsWith("http://")||u.startsWith("file:///android_asset/")))owner.loadUrl(u);});}@android.webkit.JavascriptInterface public void back(){runOnUiThread(()->{if(owner.canGoBack())owner.goBack();});}@android.webkit.JavascriptInterface public void forward(){runOnUiThread(()->owner.goForward());}@android.webkit.JavascriptInterface public void reload(){runOnUiThread(owner::reload);}@android.webkit.JavascriptInterface public void home(){runOnUiThread(()->owner.loadUrl("file:///android_asset/index.html"));}@android.webkit.JavascriptInterface public void retry(){runOnUiThread(()->owner.loadUrl(lastFailedUrl));}}
-    @Override public void onBackPressed(){if(screenOpen&&screenBackAction!=null){screenBackAction.run();return;}if(active().canGoBack())active().goBack();else super.onBackPressed();}
+    @Override public void onBackPressed(){if(menuSheetOpen){closeMenuSheet(null);return;}if(screenOpen&&screenBackAction!=null){screenBackAction.run();return;}if(active().canGoBack())active().goBack();else super.onBackPressed();}
     @Override protected void onDestroy(){for(WebView w:tabs)w.destroy();tabs.clear();super.onDestroy();}
 }
