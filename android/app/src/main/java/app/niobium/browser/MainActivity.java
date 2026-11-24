@@ -3,6 +3,7 @@ package app.niobium.browser;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.os.Environment;
 import android.graphics.Color;
@@ -26,6 +27,10 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ScrollView;
+import android.widget.Switch;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Toast;
 import android.net.Uri;
 import java.util.ArrayList;
@@ -122,7 +127,7 @@ public class MainActivity extends Activity {
     }
     private WebView active(){return tabs.get(current);}
     private WebView createWebView(){
-        WebView w=new WebView(this); CookieManager.getInstance().setAcceptThirdPartyCookies(w,true); w.setBackgroundColor(Color.WHITE);
+        WebView w=new WebView(this); CookieManager.getInstance().setAcceptThirdPartyCookies(w,getSharedPreferences("niobium_settings",MODE_PRIVATE).getBoolean("third_party_cookies",true)); w.setBackgroundColor(Color.WHITE);
         w.getSettings().setJavaScriptEnabled(getSharedPreferences("niobium_settings",MODE_PRIVATE).getBoolean("javascript_enabled",true)); w.getSettings().setDomStorageEnabled(true); w.getSettings().setDatabaseEnabled(true);
         w.getSettings().setSupportZoom(true); w.getSettings().setBuiltInZoomControls(true); w.getSettings().setDisplayZoomControls(false);
         w.addJavascriptInterface(new BrowserBridge(w),"Niobium");
@@ -175,40 +180,89 @@ public class MainActivity extends Activity {
     private void showTabs(){String[] items=new String[tabs.size()+1];for(int i=0;i<tabs.size();i++)items[i]=(i==current?"✓ ":"")+(titles.get(i).isEmpty()?"New tab":titles.get(i));items[tabs.size()]="＋ New tab";new AlertDialog.Builder(this).setTitle("Niobium tabs").setItems(items,(d,n)->{if(n==tabs.size())addTab("file:///android_asset/index.html");else switchTab(n);}).setNeutralButton("Close current tab",(d,n)->closeTab()).show();}
     private void closeTab(){if(tabs.size()<=1){active().loadUrl("file:///android_asset/index.html");return;}WebView w=active();pageHost.removeView(w);w.destroy();tabs.remove(current);titles.remove(current);switchTab(Math.max(0,current-1));}
     private void showThemes(){String[] names=new String[themes.length];for(int i=0;i<themes.length;i++)names[i]=themes[i].icon+"  "+themes[i].name+(themes[i]==theme?"  ✓":"");new AlertDialog.Builder(this).setTitle("Choose your Niobium theme").setItems(names,(d,n)->{theme=themes[n];applyTheme();}).show();}
+    private int panelColor(){return theme.background;}
+    private TextView panelText(String value,int size,int color){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);return t;}
+    private LinearLayout panelColumn(){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(20),dp(18),dp(20),dp(12));box.setBackground(shape(panelColor(),0,dp(24)));return box;}
+    private void addPanelRow(LinearLayout box,String icon,String title,String detail,Runnable action){
+        LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(10),dp(12),dp(10),dp(12));row.setBackground(shape(theme.soft,0,dp(16)));
+        TextView glyph=panelText(icon,23,theme.accent);glyph.setGravity(Gravity.CENTER);row.addView(glyph,new LinearLayout.LayoutParams(dp(42),dp(42)));
+        LinearLayout copy=new LinearLayout(this);copy.setOrientation(LinearLayout.VERTICAL);copy.setPadding(dp(10),0,0,0);
+        copy.addView(panelText(title,16,theme.ink));TextView sub=panelText(detail,12,0xff7b8790);LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.topMargin=dp(3);copy.addView(sub,sp);
+        row.addView(copy,new LinearLayout.LayoutParams(0,-2,1));row.setOnClickListener(v->action.run());
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2);rp.bottomMargin=dp(9);box.addView(row,rp);
+    }
+    private AlertDialog showPanel(String title,String subtitle,LinearLayout content){
+        LinearLayout outer=panelColumn();TextView heading=panelText(title,23,theme.ink);heading.setTypeface(Typeface.DEFAULT,Typeface.BOLD);outer.addView(heading);
+        TextView sub=panelText(subtitle,13,0xff7b8790);LinearLayout.LayoutParams sm=new LinearLayout.LayoutParams(-1,-2);sm.topMargin=dp(4);sm.bottomMargin=dp(18);outer.addView(sub,sm);
+        if(content!=null)outer.addView(content);
+        AlertDialog dialog=new AlertDialog.Builder(this).setView(outer).setNegativeButton("Close",null).create();dialog.setOnShowListener(v->{Window w=dialog.getWindow();if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);w.setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-dp(28),dp(520)),-2);w.setGravity(Gravity.BOTTOM);WindowManager.LayoutParams p=w.getAttributes();p.y=dp(14);w.setAttributes(p);}});dialog.show();return dialog;
+    }
     private void showMenu(){
-        String[] items={"Downloads","Settings","About Niobium Lite"};
-        new AlertDialog.Builder(this).setTitle("Niobium menu").setItems(items,(d,n)->{
-            if(n==0)showDownloads(); else if(n==1)showSettings(); else showInfo();
-        }).show();
+        LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);
+        addPanelRow(rows,"⇩","Downloads","See files downloading and completed",()->showDownloads());
+        addPanelRow(rows,"⚙","Settings","Privacy, website and browser preferences",()->showSettings());
+        addPanelRow(rows,"ⓘ","About Niobium Lite","Version and browser information",()->showInfo());
+        showPanel("Niobium menu","Your browser, your controls",rows);
     }
     private void showDownloads(){
-        try { startActivity(new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)); }
-        catch(Exception e){ Toast.makeText(this,"Open the Downloads app on your phone",Toast.LENGTH_LONG).show(); }
+        LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);
+        DownloadManager manager=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
+        Cursor cursor=null;int count=0;
+        try{
+            if(manager!=null){cursor=manager.query(new DownloadManager.Query());
+                while(cursor!=null&&cursor.moveToNext()){
+                    long id=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID));
+                    String name=cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE));
+                    int status=cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                    long got=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                    long total=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                    String state=status==DownloadManager.STATUS_SUCCESSFUL?"Completed":status==DownloadManager.STATUS_FAILED?"Failed":status==DownloadManager.STATUS_PAUSED?"Paused":"Downloading";
+                    String size=total>0?String.format(java.util.Locale.US,"%.1f / %.1f MB",got/1048576d,total/1048576d):"File size unavailable";
+                    final long downloadId=id;final int downloadStatus=status;
+                    addPanelRow(rows,"⇩",name==null?"Downloaded file":name,state+"  •  "+size,()->{
+                        if(downloadStatus==DownloadManager.STATUS_SUCCESSFUL){
+                            android.net.Uri uri=manager.getUriForDownloadedFile(downloadId);
+                            if(uri!=null){Intent open=new Intent(Intent.ACTION_VIEW);open.setDataAndType(uri,getContentResolver().getType(uri));open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);try{startActivity(open);}catch(Exception ex){Toast.makeText(this,"No app can open this file",Toast.LENGTH_SHORT).show();}}
+                        }else Toast.makeText(this,"This download is not complete yet",Toast.LENGTH_SHORT).show();
+                    });count++;
+                }
+            }
+        }catch(Exception e){Toast.makeText(this,"Could not read downloads",Toast.LENGTH_SHORT).show();}
+        finally{if(cursor!=null)cursor.close();}
+        if(count==0){TextView empty=panelText("No downloads yet. Files you download will appear here.",14,0xff7b8790);empty.setPadding(dp(8),dp(14),dp(8),dp(14));rows.addView(empty);}
+        showPanel("Downloads",count+" file(s) on this device • Tap a completed file to open",rows);
     }
     private void showSettings(){
         SharedPreferences prefs=getSharedPreferences("niobium_settings",MODE_PRIVATE);
-        boolean js=prefs.getBoolean("javascript_enabled",true);
-        String[] items={"JavaScript: "+(js?"On":"Off"),"Clear browsing data"};
-        new AlertDialog.Builder(this).setTitle("Settings").setItems(items,(d,n)->{
-            if(n==0){
-                boolean next=!prefs.getBoolean("javascript_enabled",true);
-                prefs.edit().putBoolean("javascript_enabled",next).apply();
-                for(WebView w:tabs)w.getSettings().setJavaScriptEnabled(next);
-                Toast.makeText(this,"JavaScript "+(next?"enabled":"disabled"),Toast.LENGTH_SHORT).show();
-                showSettings();
-            } else clearBrowsingData();
-        }).setNegativeButton("Close",null).show();
+        LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);
+        addPanelRow(rows,"⌘","JavaScript","Allow interactive websites",()->{
+            boolean next=!prefs.getBoolean("javascript_enabled",true);prefs.edit().putBoolean("javascript_enabled",next).apply();
+            for(WebView w:tabs)w.getSettings().setJavaScriptEnabled(next);showSettings();
+        });
+        addPanelRow(rows,"◉","Third-party cookies","Allow cookies used by embedded services",()->{
+            boolean next=!prefs.getBoolean("third_party_cookies",true);prefs.edit().putBoolean("third_party_cookies",next).apply();
+            for(WebView w:tabs)CookieManager.getInstance().setAcceptThirdPartyCookies(w,next);showSettings();
+        });
+        addPanelRow(rows,"⌫","Clear browsing data","Clear cache, history, form data and cookies",()->clearBrowsingData());
+        addPanelRow(rows,"⇩","Downloads","View downloaded files",()->showDownloads());
+        showPanel("Settings","Manage how Niobium Lite works",rows);
     }
     private void clearBrowsingData(){
         new AlertDialog.Builder(this).setTitle("Clear browsing data?")
-            .setMessage("This clears page cache, browsing history and website cookies. Saved passwords managed by websites may also be affected.")
+            .setMessage("This clears page cache, browsing history, saved form data and website cookies.")
             .setNegativeButton("Cancel",null).setPositiveButton("Clear",(d,n)->{
                 for(WebView w:tabs){w.clearCache(true);w.clearHistory();w.clearFormData();}
                 CookieManager.getInstance().removeAllCookies(null);CookieManager.getInstance().flush();
                 Toast.makeText(this,"Browsing data cleared",Toast.LENGTH_SHORT).show();
             }).show();
     }
-    private void showInfo(){new AlertDialog.Builder(this).setTitle("Niobium Lite").setMessage("A lightweight browser powered by Android System WebView.").setPositiveButton("OK",null).show();}
+    private void showInfo(){
+        LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);
+        addPanelRow(rows,"Nb","Niobium Lite","A lightweight browser powered by Android System WebView",()->{});
+        addPanelRow(rows,"⚡","Fast and lightweight","Built for simple, everyday web browsing",()->{});
+        addPanelRow(rows,"🛡","Privacy","Your browsing data stays on your device unless a website receives it",()->{});
+        showPanel("About Niobium Lite","Version 1.0 • Android WebView edition",rows);
+    }
     private void navigate(String input){String v=input==null?"":input.trim();if(v.isEmpty())return;if(!v.matches("^[a-zA-Z][a-zA-Z0-9+.-]*:.*"))v=v.matches("^(localhost|\\d{1,3}(\\.\\d{1,3}){3}|[^\\s]+\\.[^\\s]+)(/.*)?$")?"https://"+v:"https://www.google.com/search?q="+android.net.Uri.encode(v);active().loadUrl(v);((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);address.clearFocus();}
     private void goBack(){if(active().canGoBack())active().goBack();}
     private class BrowserBridge{private final WebView owner;BrowserBridge(WebView w){owner=w;}@android.webkit.JavascriptInterface public void open(String u){runOnUiThread(()->{if(u!=null&&(u.startsWith("https://")||u.startsWith("http://")||u.startsWith("file:///android_asset/")))owner.loadUrl(u);});}@android.webkit.JavascriptInterface public void back(){runOnUiThread(()->{if(owner.canGoBack())owner.goBack();});}@android.webkit.JavascriptInterface public void forward(){runOnUiThread(()->owner.goForward());}@android.webkit.JavascriptInterface public void reload(){runOnUiThread(owner::reload);}@android.webkit.JavascriptInterface public void home(){runOnUiThread(()->owner.loadUrl("file:///android_asset/index.html"));}@android.webkit.JavascriptInterface public void retry(){runOnUiThread(()->owner.loadUrl(lastFailedUrl));}}
