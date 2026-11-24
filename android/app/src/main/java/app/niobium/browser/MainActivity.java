@@ -56,6 +56,8 @@ public class MainActivity extends Activity {
     private final ArrayList<String> titles = new ArrayList<>();
     private int current = 0;
     private String lastFailedUrl = "https://www.google.com";
+    private boolean screenOpen=false;
+    private Runnable screenBackAction=null;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -180,72 +182,93 @@ public class MainActivity extends Activity {
     private void showTabs(){String[] items=new String[tabs.size()+1];for(int i=0;i<tabs.size();i++)items[i]=(i==current?"✓ ":"")+(titles.get(i).isEmpty()?"New tab":titles.get(i));items[tabs.size()]="＋ New tab";new AlertDialog.Builder(this).setTitle("Niobium tabs").setItems(items,(d,n)->{if(n==tabs.size())addTab("file:///android_asset/index.html");else switchTab(n);}).setNeutralButton("Close current tab",(d,n)->closeTab()).show();}
     private void closeTab(){if(tabs.size()<=1){active().loadUrl("file:///android_asset/index.html");return;}WebView w=active();pageHost.removeView(w);w.destroy();tabs.remove(current);titles.remove(current);switchTab(Math.max(0,current-1));}
     private void showThemes(){String[] names=new String[themes.length];for(int i=0;i<themes.length;i++)names[i]=themes[i].icon+"  "+themes[i].name+(themes[i]==theme?"  ✓":"");new AlertDialog.Builder(this).setTitle("Choose your Niobium theme").setItems(names,(d,n)->{theme=themes[n];applyTheme();}).show();}
-    private int panelColor(){return theme.background;}
     private TextView panelText(String value,int size,int color){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);return t;}
-    private LinearLayout panelColumn(){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(dp(20),dp(18),dp(20),dp(12));box.setBackground(shape(panelColor(),0,dp(24)));return box;}
-    private void addPanelRow(LinearLayout box,String icon,String title,String detail,Runnable action){
-        LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(10),dp(12),dp(10),dp(12));row.setBackground(shape(theme.soft,0,dp(16)));
-        TextView glyph=panelText(icon,23,theme.accent);glyph.setGravity(Gravity.CENTER);row.addView(glyph,new LinearLayout.LayoutParams(dp(42),dp(42)));
-        LinearLayout copy=new LinearLayout(this);copy.setOrientation(LinearLayout.VERTICAL);copy.setPadding(dp(10),0,0,0);
-        copy.addView(panelText(title,16,theme.ink));TextView sub=panelText(detail,12,0xff7b8790);LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.topMargin=dp(3);copy.addView(sub,sp);
-        row.addView(copy,new LinearLayout.LayoutParams(0,-2,1));row.setOnClickListener(v->action.run());
-        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2);rp.bottomMargin=dp(9);box.addView(row,rp);
+    private LinearLayout pageColumn(){LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setBackgroundColor(theme.background);return c;}
+    private TextView pageAction(String value,int size,Runnable run){TextView t=panelText(value,size,theme.ink);t.setGravity(Gravity.CENTER);t.setOnClickListener(v->run.run());return t;}
+    private void openFullPage(String title,String subtitle,View content,Runnable back){
+        LinearLayout page=pageColumn();
+        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(8),dp(8),dp(16),dp(8));header.setBackgroundColor(Color.WHITE);
+        TextView backButton=pageAction("‹",38,back);header.addView(backButton,new LinearLayout.LayoutParams(dp(48),dp(52)));
+        LinearLayout titlesBox=new LinearLayout(this);titlesBox.setOrientation(LinearLayout.VERTICAL);titlesBox.setPadding(dp(8),0,0,0);
+        TextView heading=panelText(title,20,0xff17212b);heading.setTypeface(Typeface.DEFAULT,Typeface.BOLD);titlesBox.addView(heading);
+        TextView sub=panelText(subtitle,12,0xff77838d);LinearLayout.LayoutParams subp=new LinearLayout.LayoutParams(-1,-2);subp.topMargin=dp(2);titlesBox.addView(sub,subp);
+        header.addView(titlesBox,new LinearLayout.LayoutParams(0,-2,1));
+        page.addView(header,new LinearLayout.LayoutParams(-1,dp(68)));
+        View line=new View(this);line.setBackgroundColor(theme.accent);page.addView(line,new LinearLayout.LayoutParams(-1,dp(3)));
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);scroll.setPadding(dp(16),dp(16),dp(16),dp(24));
+        if(content!=null)scroll.addView(content,new ScrollView.LayoutParams(-1,-2));
+        page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        setContentView(page);screenOpen=true;screenBackAction=back;
+        page.setAlpha(0f);page.setTranslationX(dp(48));page.animate().alpha(1f).translationX(0).setDuration(260).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
     }
-    private AlertDialog showPanel(String title,String subtitle,LinearLayout content){
-        LinearLayout outer=panelColumn();TextView heading=panelText(title,23,theme.ink);heading.setTypeface(Typeface.DEFAULT,Typeface.BOLD);outer.addView(heading);
-        TextView sub=panelText(subtitle,13,0xff7b8790);LinearLayout.LayoutParams sm=new LinearLayout.LayoutParams(-1,-2);sm.topMargin=dp(4);sm.bottomMargin=dp(18);outer.addView(sub,sm);
-        if(content!=null)outer.addView(content);
-        AlertDialog dialog=new AlertDialog.Builder(this).setView(outer).setNegativeButton("Close",null).create();dialog.setOnShowListener(v->{Window w=dialog.getWindow();if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);w.setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-dp(28),dp(520)),-2);w.setGravity(Gravity.BOTTOM);WindowManager.LayoutParams p=w.getAttributes();p.y=dp(14);w.setAttributes(p);}});dialog.show();return dialog;
+    private void closeFullPage(){
+        View currentView=getWindow().getDecorView().findViewById(android.R.id.content);
+        if(currentView!=null)currentView.animate().alpha(0f).translationX(dp(32)).setDuration(150).withEndAction(()->{
+            screenOpen=false;screenBackAction=null;setContentView(root);root.setAlpha(0f);root.animate().alpha(1f).setDuration(180).start();
+        }).start();else{screenOpen=false;setContentView(root);}
+    }
+    private LinearLayout pageRows(){LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);return rows;}
+    private void addPageRow(LinearLayout rows,String icon,String title,String detail,Runnable action){
+        LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(12),dp(14),dp(12),dp(14));row.setBackground(shape(Color.WHITE,0xffe8edf0,dp(16)));
+        TextView glyph=panelText(icon,23,theme.accent);glyph.setGravity(Gravity.CENTER);row.addView(glyph,new LinearLayout.LayoutParams(dp(42),dp(42)));
+        LinearLayout textBox=new LinearLayout(this);textBox.setOrientation(LinearLayout.VERTICAL);textBox.setPadding(dp(12),0,dp(8),0);
+        textBox.addView(panelText(title,16,0xff1c2730));TextView small=panelText(detail,12,0xff78848d);LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.topMargin=dp(4);textBox.addView(small,sp);
+        row.addView(textBox,new LinearLayout.LayoutParams(0,-2,1));TextView arrow=panelText("›",28,0xff8b969e);row.addView(arrow);
+        row.setOnClickListener(v->action.run());LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2);rp.bottomMargin=dp(10);rows.addView(row,rp);
+    }
+    private void addSettingSwitch(LinearLayout rows,String title,String detail,String key,boolean defaultValue,java.util.function.Consumer<Boolean> changed){
+        LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(14),dp(13),dp(12),dp(13));row.setBackground(shape(Color.WHITE,0xffe8edf0,dp(16)));
+        LinearLayout textBox=new LinearLayout(this);textBox.setOrientation(LinearLayout.VERTICAL);textBox.addView(panelText(title,16,0xff1c2730));
+        TextView small=panelText(detail,12,0xff78848d);LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(-1,-2);sp.topMargin=dp(4);textBox.addView(small,sp);
+        row.addView(textBox,new LinearLayout.LayoutParams(0,-2,1));
+        Switch toggle=new Switch(this);toggle.setChecked(getSharedPreferences("niobium_settings",MODE_PRIVATE).getBoolean(key,defaultValue));
+        toggle.setOnCheckedChangeListener((button,checked)->{getSharedPreferences("niobium_settings",MODE_PRIVATE).edit().putBoolean(key,checked).apply();changed.accept(checked);});
+        row.addView(toggle);LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2);rp.bottomMargin=dp(10);rows.addView(row,rp);
     }
     private void showMenu(){
-        LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);
-        addPanelRow(rows,"⇩","Downloads","See files downloading and completed",()->showDownloads());
-        addPanelRow(rows,"⚙","Settings","Privacy, website and browser preferences",()->showSettings());
-        addPanelRow(rows,"ⓘ","About Niobium Lite","Version and browser information",()->showInfo());
-        showPanel("Niobium menu","Your browser, your controls",rows);
+        LinearLayout rows=pageRows();
+        addPageRow(rows,"⇩","Downloads","View progress and downloaded files",()->showDownloads());
+        addPageRow(rows,"⚙","Settings","Privacy, permissions and browsing preferences",()->showSettings());
+        addPageRow(rows,"ⓘ","About Niobium Lite","Version, browser engine and credits",()->showInfo());
+        openFullPage("Niobium","Browser menu",rows,()->closeFullPage());
     }
     private void showDownloads(){
-        LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);
-        DownloadManager manager=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
-        Cursor cursor=null;int count=0;
-        try{
-            if(manager!=null){cursor=manager.query(new DownloadManager.Query());
-                while(cursor!=null&&cursor.moveToNext()){
-                    long id=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID));
-                    String name=cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE));
-                    int status=cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
-                    long got=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
-                    long total=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
-                    String state=status==DownloadManager.STATUS_SUCCESSFUL?"Completed":status==DownloadManager.STATUS_FAILED?"Failed":status==DownloadManager.STATUS_PAUSED?"Paused":"Downloading";
-                    String size=total>0?String.format(java.util.Locale.US,"%.1f / %.1f MB",got/1048576d,total/1048576d):"File size unavailable";
-                    final long downloadId=id;final int downloadStatus=status;
-                    addPanelRow(rows,"⇩",name==null?"Downloaded file":name,state+"  •  "+size,()->{
-                        if(downloadStatus==DownloadManager.STATUS_SUCCESSFUL){
-                            android.net.Uri uri=manager.getUriForDownloadedFile(downloadId);
-                            if(uri!=null){Intent open=new Intent(Intent.ACTION_VIEW);open.setDataAndType(uri,getContentResolver().getType(uri));open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);try{startActivity(open);}catch(Exception ex){Toast.makeText(this,"No app can open this file",Toast.LENGTH_SHORT).show();}}
-                        }else Toast.makeText(this,"This download is not complete yet",Toast.LENGTH_SHORT).show();
-                    });count++;
-                }
+        LinearLayout rows=pageRows();
+        LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);TextView info=panelText("Files downloaded by Niobium Lite",13,0xff77838d);top.addView(info,new LinearLayout.LayoutParams(0,-2,1));
+        TextView refresh=panelText("↻  Refresh",14,theme.accent);refresh.setPadding(dp(10),dp(8),dp(10),dp(8));refresh.setOnClickListener(v->showDownloads());top.addView(refresh);rows.addView(top);
+        DownloadManager manager=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);Cursor cursor=null;int count=0;
+        try{if(manager!=null){cursor=manager.query(new DownloadManager.Query().setFilterByStatus(DownloadManager.STATUS_PENDING|DownloadManager.STATUS_RUNNING|DownloadManager.STATUS_PAUSED|DownloadManager.STATUS_SUCCESSFUL|DownloadManager.STATUS_FAILED));
+            while(cursor!=null&&cursor.moveToNext()){
+                long id=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID));
+                String name=cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE));
+                int status=cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                long got=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                long total=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                String state=status==DownloadManager.STATUS_SUCCESSFUL?"Completed":status==DownloadManager.STATUS_FAILED?"Failed":status==DownloadManager.STATUS_PAUSED?"Paused":status==DownloadManager.STATUS_PENDING?"Waiting":"Downloading";
+                String size=total>0?String.format(java.util.Locale.US,"%.1f / %.1f MB",got/1048576d,total/1048576d):"Size unknown";
+                final long downloadId=id;final int downloadStatus=status;
+                addPageRow(rows,"⇩",name==null?"Downloaded file":name,state+" • "+size,()->{
+                    if(downloadStatus==DownloadManager.STATUS_SUCCESSFUL){Uri uri=manager.getUriForDownloadedFile(downloadId);if(uri!=null){Intent open=new Intent(Intent.ACTION_VIEW);open.setDataAndType(uri,getContentResolver().getType(uri));open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);try{startActivity(open);}catch(Exception e){Toast.makeText(this,"No app can open this file",Toast.LENGTH_SHORT).show();}}}
+                    else if(downloadStatus==DownloadManager.STATUS_FAILED)Toast.makeText(this,"Download failed",Toast.LENGTH_SHORT).show();
+                    else Toast.makeText(this,"Download is still in progress",Toast.LENGTH_SHORT).show();
+                });count++;
             }
-        }catch(Exception e){Toast.makeText(this,"Could not read downloads",Toast.LENGTH_SHORT).show();}
-        finally{if(cursor!=null)cursor.close();}
-        if(count==0){TextView empty=panelText("No downloads yet. Files you download will appear here.",14,0xff7b8790);empty.setPadding(dp(8),dp(14),dp(8),dp(14));rows.addView(empty);}
-        showPanel("Downloads",count+" file(s) on this device • Tap a completed file to open",rows);
+        }}catch(Exception e){Toast.makeText(this,"Could not read downloads",Toast.LENGTH_SHORT).show();}finally{if(cursor!=null)cursor.close();}
+        if(count==0){TextView empty=panelText("Nothing here yet\n\nYour downloads will appear here with their progress and status.",15,0xff77838d);empty.setGravity(Gravity.CENTER);empty.setPadding(dp(20),dp(70),dp(20),dp(70));rows.addView(empty);}
+        openFullPage("Downloads",count+" download(s)",rows,()->showMenu());
     }
     private void showSettings(){
-        SharedPreferences prefs=getSharedPreferences("niobium_settings",MODE_PRIVATE);
-        LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);
-        addPanelRow(rows,"⌘","JavaScript","Allow interactive websites",()->{
-            boolean next=!prefs.getBoolean("javascript_enabled",true);prefs.edit().putBoolean("javascript_enabled",next).apply();
-            for(WebView w:tabs)w.getSettings().setJavaScriptEnabled(next);showSettings();
-        });
-        addPanelRow(rows,"◉","Third-party cookies","Allow cookies used by embedded services",()->{
-            boolean next=!prefs.getBoolean("third_party_cookies",true);prefs.edit().putBoolean("third_party_cookies",next).apply();
-            for(WebView w:tabs)CookieManager.getInstance().setAcceptThirdPartyCookies(w,next);showSettings();
-        });
-        addPanelRow(rows,"⌫","Clear browsing data","Clear cache, history, form data and cookies",()->clearBrowsingData());
-        addPanelRow(rows,"⇩","Downloads","View downloaded files",()->showDownloads());
-        showPanel("Settings","Manage how Niobium Lite works",rows);
+        SharedPreferences prefs=getSharedPreferences("niobium_settings",MODE_PRIVATE);LinearLayout rows=pageRows();
+        TextView privacy=panelText("GENERAL",12,theme.accent);privacy.setTypeface(Typeface.DEFAULT,Typeface.BOLD);privacy.setPadding(dp(4),dp(8),0,dp(10));rows.addView(privacy);
+        addSettingSwitch(rows,"JavaScript","Allow interactive websites","javascript_enabled",true,enabled->{for(WebView w:tabs)w.getSettings().setJavaScriptEnabled(enabled);});
+        addSettingSwitch(rows,"Third-party cookies","Allow embedded services to use cookies","third_party_cookies",true,enabled->{for(WebView w:tabs)CookieManager.getInstance().setAcceptThirdPartyCookies(w,enabled);});
+        addSettingSwitch(rows,"Save form data","Allow websites to remember form entries","save_form_data",true,enabled->{});
+        TextView data=panelText("BROWSING DATA",12,theme.accent);data.setTypeface(Typeface.DEFAULT,Typeface.BOLD);data.setPadding(dp(4),dp(20),0,dp(10));rows.addView(data);
+        addPageRow(rows,"⌫","Clear browsing data","Clear cache, history, form data and cookies",()->clearBrowsingData());
+        addPageRow(rows,"⇩","Downloads","Open download manager",()->showDownloads());
+        TextView about=panelText("WEBSITE SETTINGS",12,theme.accent);about.setTypeface(Typeface.DEFAULT,Typeface.BOLD);about.setPadding(dp(4),dp(20),0,dp(10));rows.addView(about);
+        addSettingSwitch(rows,"Pop-up windows","WebView blocks pop-ups by default","block_popups",true,enabled->{});
+        openFullPage("Settings","Customize your browsing experience",rows,()->showMenu());
     }
     private void clearBrowsingData(){
         new AlertDialog.Builder(this).setTitle("Clear browsing data?")
@@ -253,19 +276,24 @@ public class MainActivity extends Activity {
             .setNegativeButton("Cancel",null).setPositiveButton("Clear",(d,n)->{
                 for(WebView w:tabs){w.clearCache(true);w.clearHistory();w.clearFormData();}
                 CookieManager.getInstance().removeAllCookies(null);CookieManager.getInstance().flush();
-                Toast.makeText(this,"Browsing data cleared",Toast.LENGTH_SHORT).show();
+                Toast.makeText(this,"Browsing data cleared",Toast.LENGTH_SHORT).show();showSettings();
             }).show();
     }
     private void showInfo(){
-        LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);
-        addPanelRow(rows,"Nb","Niobium Lite","A lightweight browser powered by Android System WebView",()->{});
-        addPanelRow(rows,"⚡","Fast and lightweight","Built for simple, everyday web browsing",()->{});
-        addPanelRow(rows,"🛡","Privacy","Your browsing data stays on your device unless a website receives it",()->{});
-        showPanel("About Niobium Lite","Version 1.0 • Android WebView edition",rows);
+        LinearLayout rows=pageRows();
+        LinearLayout brand=new LinearLayout(this);brand.setOrientation(LinearLayout.VERTICAL);brand.setGravity(Gravity.CENTER);brand.setPadding(dp(18),dp(30),dp(18),dp(30));brand.setBackground(shape(Color.WHITE,0xffe8edf0,dp(20)));
+        TextView logo=panelText("Nb",38,theme.accent);logo.setTypeface(Typeface.DEFAULT,Typeface.BOLD);logo.setGravity(Gravity.CENTER);brand.addView(logo);
+        TextView name=panelText("Niobium Lite",23,0xff17212b);name.setTypeface(Typeface.DEFAULT,Typeface.BOLD);name.setGravity(Gravity.CENTER);LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.topMargin=dp(8);brand.addView(name,np);
+        TextView version=panelText("Version 1.0.0",13,0xff77838d);version.setGravity(Gravity.CENTER);LinearLayout.LayoutParams vp=new LinearLayout.LayoutParams(-1,-2);vp.topMargin=dp(5);brand.addView(version,vp);
+        rows.addView(brand);
+        addPageRow(rows,"🌐","Browser engine","Android System WebView",()->{});
+        addPageRow(rows,"🛡","Privacy","Browsing data is stored locally on this device. Websites may still collect data when you visit them.",()->{});
+        addPageRow(rows,"⚡","Built for speed","A lightweight browser experience by Niobium",()->{});
+        openFullPage("About","About this browser",rows,()->showMenu());
     }
     private void navigate(String input){String v=input==null?"":input.trim();if(v.isEmpty())return;if(!v.matches("^[a-zA-Z][a-zA-Z0-9+.-]*:.*"))v=v.matches("^(localhost|\\d{1,3}(\\.\\d{1,3}){3}|[^\\s]+\\.[^\\s]+)(/.*)?$")?"https://"+v:"https://www.google.com/search?q="+android.net.Uri.encode(v);active().loadUrl(v);((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(address.getWindowToken(),0);address.clearFocus();}
     private void goBack(){if(active().canGoBack())active().goBack();}
     private class BrowserBridge{private final WebView owner;BrowserBridge(WebView w){owner=w;}@android.webkit.JavascriptInterface public void open(String u){runOnUiThread(()->{if(u!=null&&(u.startsWith("https://")||u.startsWith("http://")||u.startsWith("file:///android_asset/")))owner.loadUrl(u);});}@android.webkit.JavascriptInterface public void back(){runOnUiThread(()->{if(owner.canGoBack())owner.goBack();});}@android.webkit.JavascriptInterface public void forward(){runOnUiThread(()->owner.goForward());}@android.webkit.JavascriptInterface public void reload(){runOnUiThread(owner::reload);}@android.webkit.JavascriptInterface public void home(){runOnUiThread(()->owner.loadUrl("file:///android_asset/index.html"));}@android.webkit.JavascriptInterface public void retry(){runOnUiThread(()->owner.loadUrl(lastFailedUrl));}}
-    @Override public void onBackPressed(){if(active().canGoBack())active().goBack();else super.onBackPressed();}
+    @Override public void onBackPressed(){if(screenOpen&&screenBackAction!=null){screenBackAction.run();return;}if(active().canGoBack())active().goBack();else super.onBackPressed();}
     @Override protected void onDestroy(){for(WebView w:tabs)w.destroy();tabs.clear();super.onDestroy();}
 }
