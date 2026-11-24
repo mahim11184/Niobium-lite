@@ -77,6 +77,7 @@
         <span id="compactClock" class="font-mono font-semibold text-slate-800 dark:text-slate-200">11:47 PM</span>
       </div>
 
+      <button id="customizeToggleBtn" type="button" title="Customize homepage" class="p-2.5 rounded-full bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 shadow-sm">⚙</button>
       <!-- Scratchpad Toggle -->
       <button
         id="notesToggleBtn"
@@ -112,7 +113,7 @@
   <main class="w-full max-w-3xl mx-auto px-4 sm:px-6 my-auto py-8 flex flex-col items-center">
 
     <!-- Brand Identity Header -->
-    <div class="flex flex-col items-center text-center mb-8 select-none">
+    <div id="brandSection" class="flex flex-col items-center text-center mb-8 select-none">
       <div class="inline-flex items-center gap-3.5 mb-2">
         <!-- Minimalist Geometric Niobium Emblem (Nb 41) -->
         <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-600/20 text-white">
@@ -136,7 +137,7 @@
     </div>
 
     <!-- Omni-Search Bar Container -->
-    <div class="w-full mb-10">
+    <div id="searchSection" class="w-full mb-10">
       <form id="searchForm" class="relative group">
         <div class="flex items-center w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus-within:border-blue-500 dark:focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10 rounded-2xl shadow-md shadow-slate-200/50 dark:shadow-none transition-all duration-200 px-3 py-2">
           
@@ -194,7 +195,7 @@
     </div>
 
     <!-- Shortcuts / Speed Dial Section -->
-    <section class="w-full">
+    <section id="shortcutsSection" class="w-full">
       <div class="flex items-center justify-between mb-3.5 px-1">
         <div class="flex items-center gap-2">
           <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -223,7 +224,7 @@
   </main>
 
   <!-- Minimal Footer -->
-  <footer class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500">
+  <footer id="homeFooter" class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500">
     <div class="flex items-center gap-2">
       <span>Press <kbd class="px-1.5 py-0.5 text-[11px] font-mono bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-600 dark:text-slate-300">/</kbd> to search</span>
     </div>
@@ -302,6 +303,21 @@
     ></textarea>
   </div>
 
+<section id="customizePanel" class="fixed top-16 right-4 z-40 hidden w-80 max-w-[calc(100vw-2rem)] max-h-[calc(100vh-5rem)] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-4">
+    <div class="flex justify-between items-center mb-3"><div><h3 class="text-sm font-bold text-slate-900 dark:text-white">Customize homepage</h3><p class="text-xs text-slate-500">Changes save automatically</p></div><button id="closeCustomizeBtn" type="button">✕</button></div>
+    <div class="space-y-3 text-xs text-slate-700 dark:text-slate-200">
+      <label class="block">Background color<input id="homeBgColor" type="color" value="#f8fafc" class="block w-full h-9 mt-1"></label>
+      <label class="block">Accent color<input id="homeAccentColor" type="color" value="#2563eb" class="block w-full h-9 mt-1"></label>
+      <label class="block">Wallpaper image URL<input id="homeWallpaper" type="url" placeholder="https://example.com/image.jpg" class="block w-full mt-1 p-2 rounded-lg border dark:bg-slate-800 dark:border-slate-700"></label>
+      <p class="text-slate-500">Show or hide homepage sections</p>
+      <label class="flex justify-between">Brand header<input id="showBrand" type="checkbox" checked></label>
+      <label class="flex justify-between">Search bar<input id="showSearch" type="checkbox" checked></label>
+      <label class="flex justify-between">Quick Access<input id="showShortcuts" type="checkbox" checked></label>
+      <label class="flex justify-between">Footer<input id="showFooter" type="checkbox" checked></label>
+      <label class="flex justify-between">Clock<input id="showClock" type="checkbox" checked></label>
+      <div class="flex gap-2"><button id="clearWallpaperBtn" type="button" class="flex-1 p-2 border rounded-lg">Remove wallpaper</button><button id="resetCustomizeBtn" type="button" class="flex-1 p-2 rounded-lg bg-blue-600 text-white">Reset</button></div>
+    </div>
+  </section>
   <!-- Toast Notification Banner -->
   <div id="toastBanner" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-medium px-4 py-2.5 rounded-full shadow-lg">
     Shortcut saved
@@ -647,6 +663,47 @@
       notesDrawer.classList.add('hidden');
     });
 
+    const customizePanel = document.getElementById('customizePanel');
+    const customizationDefaults = { bg:'#f8fafc', accent:'#2563eb', wallpaper:'', brand:true, search:true, shortcuts:true, footer:true, clock:true };
+    let homeCustomization = { ...customizationDefaults, ...NiobiumStore.get('homeCustomization', {}) };
+    function applyHomeCustomization() {
+      document.body.style.backgroundColor = homeCustomization.bg;
+      document.body.style.backgroundImage = homeCustomization.wallpaper ? 'url(' + JSON.stringify(homeCustomization.wallpaper) + ')' : '';
+      document.body.style.backgroundSize = 'cover';
+      document.body.style.backgroundPosition = 'center';
+      document.documentElement.style.setProperty('--home-accent', homeCustomization.accent);
+      document.getElementById('brandSection').classList.toggle('hidden', !homeCustomization.brand);
+      document.getElementById('searchSection').classList.toggle('hidden', !homeCustomization.search);
+      document.getElementById('shortcutsSection').classList.toggle('hidden', !homeCustomization.shortcuts);
+      document.getElementById('homeFooter').classList.toggle('hidden', !homeCustomization.footer);
+      document.querySelector('#compactDate').parentElement.classList.toggle('hidden', !homeCustomization.clock);
+      document.getElementById('homeBgColor').value = homeCustomization.bg;
+      document.getElementById('homeAccentColor').value = homeCustomization.accent;
+      document.getElementById('homeWallpaper').value = homeCustomization.wallpaper;
+      ['brand','search','shortcuts','footer','clock'].forEach(k => document.getElementById('show' + k[0].toUpperCase() + k.slice(1)).checked = homeCustomization[k]);
+      document.querySelectorAll('.bg-blue-600').forEach(el => el.style.backgroundColor = homeCustomization.accent);
+    }
+    function saveHomeCustomization() {
+      homeCustomization = {
+        bg:document.getElementById('homeBgColor').value,
+        accent:document.getElementById('homeAccentColor').value,
+        wallpaper:document.getElementById('homeWallpaper').value.trim(),
+        brand:document.getElementById('showBrand').checked,
+        search:document.getElementById('showSearch').checked,
+        shortcuts:document.getElementById('showShortcuts').checked,
+        footer:document.getElementById('showFooter').checked,
+        clock:document.getElementById('showClock').checked
+      };
+      NiobiumStore.set('homeCustomization', homeCustomization);
+      applyHomeCustomization();
+      showSavedFeedback('Homepage design saved');
+    }
+    document.getElementById('customizeToggleBtn').addEventListener('click', () => customizePanel.classList.toggle('hidden'));
+    document.getElementById('closeCustomizeBtn').addEventListener('click', () => customizePanel.classList.add('hidden'));
+    ['homeBgColor','homeAccentColor','homeWallpaper','showBrand','showSearch','showShortcuts','showFooter','showClock'].forEach(id => document.getElementById(id).addEventListener('change', saveHomeCustomization));
+    document.getElementById('clearWallpaperBtn').addEventListener('click', () => { document.getElementById('homeWallpaper').value=''; saveHomeCustomization(); });
+    document.getElementById('resetCustomizeBtn').addEventListener('click', () => { homeCustomization={...customizationDefaults}; NiobiumStore.set('homeCustomization',homeCustomization); applyHomeCustomization(); showSavedFeedback('Homepage design reset'); });
+
     /**
      * Keyboard Shortcuts ('/' focuses search, 'Escape' closes modals)
      */
@@ -672,7 +729,8 @@
     }
 
     // Initialize Application
-    applyTheme(currentTheme);
+    applyTheme(currentTheme === 'dark' ? 'dark' : 'light');
+    applyHomeCustomization();
     renderShortcuts();
     updateCompactClock();
     setInterval(updateCompactClock, 15000);
