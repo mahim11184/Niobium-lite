@@ -230,6 +230,11 @@ public class MainActivity extends Activity {
     private void showMenu(){
         if(menuSheetOpen)return;
         FrameLayout overlay=new FrameLayout(this);overlay.setBackgroundColor(Color.TRANSPARENT);
+        // Detach the browser shell from the Activity content before moving it into the menu overlay.
+        // Adding a View that already has a parent throws IllegalStateException and crashes the app.
+        if(root.getParent() instanceof android.view.ViewGroup){
+            ((android.view.ViewGroup)root.getParent()).removeView(root);
+        }
         overlay.addView(root,new FrameLayout.LayoutParams(-1,-1));
         View dim=new View(this);dim.setBackgroundColor(0x99000000);dim.setAlpha(0f);
         overlay.addView(dim,new FrameLayout.LayoutParams(-1,-1));
@@ -273,8 +278,18 @@ public class MainActivity extends Activity {
         View overlay=menuSheetRoot;View dim=overlay instanceof FrameLayout?((FrameLayout)overlay).getChildAt(1):null;
         View sheet=overlay instanceof FrameLayout?((FrameLayout)overlay).getChildAt(2):null;
         if(sheet!=null)sheet.animate().translationY(sheet.getHeight()).setDuration(220).setInterpolator(new android.view.animation.AccelerateInterpolator()).withEndAction(()->{
-            menuSheetOpen=false;menuSheetRoot=null;setContentView(root);if(after!=null)after.run();
-        }).start();else{menuSheetOpen=false;menuSheetRoot=null;setContentView(root);if(after!=null)after.run();}
+            menuSheetOpen=false;menuSheetRoot=null;
+            if(root.getParent() instanceof android.view.ViewGroup){
+                ((android.view.ViewGroup)root.getParent()).removeView(root);
+            }
+            setContentView(root);if(after!=null)after.run();
+        }).start();else{
+            menuSheetOpen=false;menuSheetRoot=null;
+            if(root.getParent() instanceof android.view.ViewGroup){
+                ((android.view.ViewGroup)root.getParent()).removeView(root);
+            }
+            setContentView(root);if(after!=null)after.run();
+        }
         if(dim!=null)dim.animate().alpha(0f).setDuration(180).start();
     }
     private void showDownloads(){
